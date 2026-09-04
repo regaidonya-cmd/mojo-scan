@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import type { DiagnosticState } from '@/types'
 import { StepWrapper } from '../StepWrapper'
 import { QUESTIONS } from '@/lib/scoring/questions'
@@ -11,76 +12,74 @@ interface Props {
   update: (patch: Partial<DiagnosticState>) => void
 }
 
+const GRAD = 'linear-gradient(135deg, #9B2FCC, #E040AB)'
+const GRAD_LIGHT = 'linear-gradient(135deg, rgba(123,63,204,0.08), rgba(224,64,171,0.08))'
+
 export function StepProfile({ state, next, update }: Props) {
   const q1 = QUESTIONS.find(q => q.code === 'P1')!
   const q2 = QUESTIONS.find(q => q.code === 'P2')!
 
-  const role = state.answers['P1']
-  const bene = state.answers['P2']
+  const [role, setRole] = useState(state.answers['P1'] ?? '')
+  const [bene, setBene] = useState(state.answers['P2'] ?? '')
 
   const setAnswer = (code: string, value: string) => {
+    if (code === 'P1') setRole(value)
+    if (code === 'P2') setBene(value)
     update({ answers: { ...state.answers, [code]: value } })
   }
 
   const canContinue = role && bene
 
+  const optBtn = (isSelected: boolean, label: string, onClick: () => void) => (
+    <button
+      onClick={onClick}
+      style={{
+        padding: '12px 16px',
+        borderRadius: 'var(--r-md)',
+        border: isSelected ? '2px solid #E040AB' : '1.5px solid #E5E7EB',
+        background: isSelected ? GRAD_LIGHT : '#fff',
+        color: isSelected ? 'var(--night)' : 'var(--text)',
+        fontSize: 14, fontWeight: isSelected ? 700 : 500,
+        cursor: 'pointer', fontFamily: 'inherit',
+        transition: 'all 0.15s',
+      }}
+    >{label}</button>
+  )
+
   return (
-    <StepWrapper
-      title="Parlez-nous de vous"
-      subtitle="Pour personnaliser votre diagnostic selon votre situation."
-    >
-      <div className="mt-6 space-y-6">
-        {/* Rôle */}
+    <StepWrapper title="Parlez-nous de vous" subtitle="Pour personnaliser votre diagnostic selon votre situation.">
+      <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+
         <div>
-          <p className="text-sm font-medium text-neutral-700 mb-2.5">{q1.text}</p>
-          <div className="grid grid-cols-2 gap-2">
-            {q1.options.map(opt => (
-              <button
-                key={opt.value}
-                onClick={() => setAnswer('P1', opt.value)}
-                className={`px-3 py-2.5 rounded-xl border text-sm font-medium transition-all
-                  ${role === opt.value
-                    ? 'bg-[#E85D26] text-white border-[#E85D26]'
-                    : 'bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400'
-                  }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+          <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)', marginBottom: 10 }}>{q1.text}</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {q1.options.map(opt => optBtn(role === opt.value, opt.label, () => setAnswer('P1', opt.value)))}
           </div>
         </div>
 
-        {/* Bénéficiaire */}
         {role && (
           <div>
-            <p className="text-sm font-medium text-neutral-700 mb-2.5">{q2.text}</p>
-            <div className="grid grid-cols-2 gap-2">
-              {q2.options.map(opt => (
-                <button
-                  key={opt.value}
-                  onClick={() => setAnswer('P2', opt.value)}
-                  className={`px-3 py-2.5 rounded-xl border text-sm font-medium transition-all
-                    ${bene === opt.value
-                      ? 'bg-[#E85D26] text-white border-[#E85D26]'
-                      : 'bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400'
-                    }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)', marginBottom: 10 }}>{q2.text}</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {q2.options.map(opt => optBtn(bene === opt.value, opt.label, () => setAnswer('P2', opt.value)))}
             </div>
           </div>
         )}
-      </div>
 
-      {canContinue && (
-        <button
-          onClick={() => next()}
-          className="mt-8 w-full bg-[#E85D26] text-white py-3.5 rounded-xl font-medium hover:bg-[#d04f1e] transition-colors"
-        >
-          Continuer →
-        </button>
-      )}
+        {canContinue && (
+          <button
+            onClick={() => next()}
+            style={{
+              marginTop: 8, width: '100%', padding: '14px',
+              borderRadius: 'var(--r-md)', border: 'none',
+              background: GRAD, color: '#fff', fontSize: 15, fontWeight: 700,
+              cursor: 'pointer', fontFamily: 'inherit',
+              boxShadow: '0 6px 20px rgba(224,64,171,0.35)',
+              transition: 'all 0.2s',
+            }}
+          >Continuer →</button>
+        )}
+      </div>
     </StepWrapper>
   )
 }
