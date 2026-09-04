@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
           naf_label:    data.company.naf_label,
           city:         data.company.city,
           postal_code:  data.company.postal_code,
-          employee_band:data.company.employee_band,
+          employee_band:data.company.employee_band as string | undefined,
         }, { onConflict: 'siren', ignoreDuplicates: false })
         .select('id')
         .single()
