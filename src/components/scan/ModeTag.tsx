@@ -1,18 +1,15 @@
 'use client'
-
 import type { ScanMode } from '@/types'
 
-const CONFIG: Record<ScanMode, { label: string; className: string }> = {
-  site:    { label: 'Auto-diagnostic',   className: 'bg-neutral-100 text-neutral-500' },
-  terrain: { label: 'Mode Terrain',      className: 'bg-amber-100  text-amber-700'   },
-  call:    { label: 'Mode Call',         className: 'bg-blue-100   text-blue-700'    },
-}
-
 export function ModeTag({ mode }: { mode: ScanMode }) {
-  const { label, className } = CONFIG[mode]
+  if (mode === 'site') return null
+  const label = mode === 'terrain' ? 'Terrain' : 'Call'
   return (
-    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${className}`}>
-      {label}
-    </span>
+    <span style={{
+      fontSize: 10, fontWeight: 700, padding: '2px 8px',
+      borderRadius: 999, background: 'rgba(255,193,7,0.15)',
+      border: '1px solid rgba(255,193,7,0.3)', color: '#FFC107',
+      letterSpacing: '0.05em', textTransform: 'uppercase' as const
+    }}>{label}</span>
   )
 }

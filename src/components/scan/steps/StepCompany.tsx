@@ -3,7 +3,6 @@
 import { useState, useCallback, useRef } from 'react'
 import type { DiagnosticState, ApiCompanySearchResult } from '@/types'
 import { StepWrapper } from '../StepWrapper'
-import { SearchIcon, BuildingIcon, ChevronRightIcon } from 'lucide-react'
 
 interface Props {
   state: DiagnosticState
@@ -12,13 +11,25 @@ interface Props {
   update: (patch: Partial<DiagnosticState>) => void
 }
 
+const btn = (primary: boolean) => ({
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+  padding: primary ? '13px 24px' : '11px 20px',
+  borderRadius: 'var(--r-md)',
+  border: primary ? 'none' : '1.5px solid #E5E7EB',
+  background: primary ? 'linear-gradient(135deg, #9B2FCC, #E040AB)' : '#fff',
+  color: primary ? '#fff' : 'var(--muted)',
+  fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+  transition: 'all 0.2s',
+  boxShadow: primary ? '0 6px 20px rgba(224,64,171,0.35)' : 'none',
+})
+
 export function StepCompany({ state, next, update }: Props) {
   const [query, setQuery]     = useState(state.company?.name ?? '')
   const [results, setResults] = useState<ApiCompanySearchResult[]>([])
   const [loading, setLoading] = useState(false)
   const [manual, setManual]   = useState(false)
   const [manualName, setManualName] = useState('')
-  const debounceRef = useRef<NodeJS.Timeout>()
+  const debounceRef = useRef<any>()
 
   const search = useCallback((q: string) => {
     setQuery(q)
@@ -42,100 +53,108 @@ export function StepCompany({ state, next, update }: Props) {
 
   const skipCompany = () => {
     const name = manualName.trim() || query.trim()
-    if (name) {
-      update({ company: { name } })
-    }
-    next({ company: name ? { name } : undefined })
+    next(name ? { company: { name } } : {})
+  }
+
+  const inputStyle = {
+    width: '100%', padding: '13px 16px', borderRadius: 'var(--r-md)',
+    border: '1.5px solid #E5E7EB', background: '#fff',
+    fontSize: 15, fontFamily: 'inherit', color: 'var(--text)',
+    outline: 'none', transition: 'border-color 0.2s',
   }
 
   return (
     <StepWrapper
-      title="Parlons de votre entreprise"
-      subtitle="Recherchez votre entreprise pour personnaliser votre diagnostic."
-      step={1}
+      title="Commençons par votre entreprise"
+      subtitle="Recherchez votre entreprise — nous récupérons automatiquement vos informations."
     >
-      {/* Search input */}
-      <div className="relative mt-6">
-        <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+      <div style={{ marginTop: 24, position: 'relative' }}>
         <input
           type="text"
           value={query}
           onChange={e => search(e.target.value)}
-          placeholder="Nom de l'entreprise, enseigne..."
-          className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-neutral-200 bg-white text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#E85D26]/30 focus:border-[#E85D26] text-base"
+          placeholder="Nom de l'entreprise ou enseigne..."
+          style={inputStyle}
           autoFocus
         />
         {loading && (
-          <div className="absolute right-4 top-1/2 -translate-y-1/2">
-            <div className="w-4 h-4 border-2 border-neutral-300 border-t-[#E85D26] rounded-full animate-spin" />
+          <div style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)' }}>
+            <div style={{
+              width: 16, height: 16, border: '2px solid #E5E7EB',
+              borderTopColor: '#E040AB', borderRadius: '50%',
+              animation: 'spin 0.8s linear infinite'
+            }} />
           </div>
         )}
       </div>
 
-      {/* Results */}
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+
+      {/* Résultats */}
       {results.length > 0 && (
-        <ul className="mt-2 bg-white rounded-xl border border-neutral-200 overflow-hidden divide-y divide-neutral-100 shadow-sm">
-          {results.map(r => (
-            <li key={r.siren ?? r.name}>
-              <button
-                onClick={() => select(r)}
-                className="w-full text-left px-4 py-3 hover:bg-neutral-50 transition-colors flex items-start gap-3 group"
-              >
-                <BuildingIcon className="w-4 h-4 text-neutral-400 mt-0.5 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-neutral-900 text-sm truncate">
-                    {r.trade_name ?? r.name}
-                  </div>
-                  <div className="text-xs text-neutral-500 mt-0.5">
-                    {[r.city, r.naf_label].filter(Boolean).join(' · ')}
-                  </div>
-                </div>
-                <ChevronRightIcon className="w-4 h-4 text-neutral-300 group-hover:text-neutral-500 flex-shrink-0 mt-0.5" />
-              </button>
-            </li>
+        <div style={{
+          marginTop: 6, background: '#fff', borderRadius: 'var(--r-md)',
+          border: '1.5px solid #E5E7EB', overflow: 'hidden',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.08)'
+        }}>
+          {results.map((r, i) => (
+            <button
+              key={r.siren ?? `${r.name}-${i}`}
+              onClick={() => select(r)}
+              style={{
+                width: '100%', textAlign: 'left', padding: '12px 16px',
+                background: 'none', border: 'none', borderBottom: i < results.length - 1 ? '1px solid #F3F4F6' : 'none',
+                cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.1s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--off)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+            >
+              <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--night)' }}>
+                {r.trade_name ?? r.name}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                {[r.city, r.naf_label].filter(Boolean).join(' · ')}
+                {r.siren && <span style={{ color: '#9CA3AF', marginLeft: 8 }}>SIREN {r.siren}</span>}
+              </div>
+            </button>
           ))}
-        </ul>
+        </div>
       )}
 
-      {/* Introuvable */}
-      {!manual && query.length > 2 && results.length === 0 && !loading && (
-        <div className="mt-4 text-center">
-          <p className="text-sm text-neutral-500 mb-3">Entreprise introuvable ?</p>
+      {/* Pas trouvé */}
+      {query.length > 2 && results.length === 0 && !loading && !manual && (
+        <div style={{ marginTop: 16, textAlign: 'center' }}>
+          <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 8 }}>
+            Entreprise introuvable dans la base officielle ?
+          </p>
           <button
             onClick={() => setManual(true)}
-            className="text-sm text-[#E85D26] underline underline-offset-2"
+            style={{ fontSize: 13, color: '#7B3FCC', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit' }}
           >
-            Saisir manuellement
+            Saisir le nom manuellement
           </button>
         </div>
       )}
 
       {manual && (
-        <div className="mt-4">
+        <div style={{ marginTop: 12 }}>
           <input
             type="text"
             value={manualName}
             onChange={e => setManualName(e.target.value)}
             placeholder="Nom de votre entreprise"
-            className="w-full px-4 py-3.5 rounded-xl border border-neutral-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#E85D26]/30 focus:border-[#E85D26] text-base"
+            style={inputStyle}
             autoFocus
           />
         </div>
       )}
 
-      {/* Skip */}
-      <div className="mt-6 flex items-center justify-between">
-        <button
-          onClick={() => next({})}
-          className="text-sm text-neutral-400 hover:text-neutral-600"
-        >
-          Passer cette étape
+      <div style={{ marginTop: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <button onClick={() => next({})} style={{ fontSize: 13, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+          Passer cette étape →
         </button>
-        {(manual || manualName) && (
-          <button
-            onClick={skipCompany}
-            className="bg-[#E85D26] text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-[#d04f1e] transition-colors"
-          >
+        {(manual && manualName.trim()) && (
+          <button onClick={skipCompany} style={btn(true)}>
             Continuer →
           </button>
         )}
