@@ -6,23 +6,34 @@ const EMPLOYEE_BAND_MAP: Record<string, string> = {
   '41':'GE','42':'GE','51':'GE','52':'GE','53':'GE',
 }
 
+function normalize(q: string): string {
+  return q
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // supprimer les accents
+    .replace(/[''`]/g, ' ')          // apostrophes -> espace
+    .replace(/[-_]/g, ' ')           // tirets -> espace
+    .replace(/\s+/g, ' ')            // espaces multiples
+    .trim()
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const q = searchParams.get('q')?.trim()
   if (!q || q.length < 2) return NextResponse.json({ results: [] })
 
+  const qNorm = normalize(q)
+
   try {
-    // API officielle française — recherche-entreprises.api.gouv.fr
-    const url = `https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(q)}&per_page=8&is_siege=true`
-    
+    const url = `https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(qNorm)}&per_page=8&is_siege=true`
+
     const res = await fetch(url, {
       headers: { 'Accept': 'application/json', 'User-Agent': 'MOJO-Scan/1.0' },
       next: { revalidate: 60 },
     })
 
     if (!res.ok) {
-      console.error('Company API error:', res.status, await res.text())
-      return NextResponse.json({ results: [], error: `API ${res.status}` })
+      console.error('Company API error:', res.status)
+      return NextResponse.json({ results: [] })
     }
 
     const json = await res.json()
