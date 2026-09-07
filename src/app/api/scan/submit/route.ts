@@ -1,29 +1,21 @@
-// ══════════════════════════════════════════════════════════════
-// MOJO SCAN — API Route : soumission du diagnostic
-// POST /api/scan/submit
-// ══════════════════════════════════════════════════════════════
-
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { computeBusinessScore, computeLeadScore, computePriorities, detectBranch } from '@/lib/scoring/engine'
 import { computeRecommendations, CATALOG_FALLBACK } from '@/lib/scoring/recommendations'
 import { computeFunding } from '@/lib/funding/engine'
-import { syncToHubspot } from '@/lib/hubspot/sync'
-import { sendDiagnosticEmail } from '@/lib/email/sender'
 import { z } from 'zod'
 
-// ── Schéma de validation ────────────────────────────────────────
 const SubmitSchema = z.object({
-  mode:        z.enum(['site','terrain','call']),
-  company:     z.object({
-    siren:       z.string().optional(),
-    siret:       z.string().optional(),
-    name:        z.string(),
-    naf:         z.string().optional(),
-    naf_label:   z.string().optional(),
-    city:        z.string().optional(),
-    postal_code: z.string().optional(),
-    employee_band: z.string().optional(),
+  mode:    z.enum(['site','terrain','call']),
+  company: z.object({
+    siren:        z.string().optional(),
+    siret:        z.string().optional(),
+    name:         z.string(),
+    naf:          z.string().optional(),
+    naf_label:    z.string().optional(),
+    city:         z.string().optional(),
+    postal_code:  z.string().optional(),
+    employee_band:z.string().optional(),
   }).optional(),
   answers: z.array(z.object({
     question_code: z.string(),
@@ -31,9 +23,9 @@ const SubmitSchema = z.object({
     score:         z.number(),
   })),
   contact: z.object({
-    firstname:        z.string(),
-    email:            z.string().email(),
-    phone:            z.string().optional(),
+    firstname: z.string(),
+    email:     z.string().email(),
+    phone:     z.string().optional(),
   }).optional(),
   consentDiag:      z.boolean(),
   consentMarketing: z.boolean(),
@@ -44,63 +36,79 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const data = SubmitSchema.parse(body)
 
-    // ── Supabase (service role — côté serveur uniquement) ────────
     const supabase = createClient(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    // ── 1. Scoring ───────────────────────────────────────────────
-    const answersMap = Object.fromEntries(
-      data.answers.map(a => [a.question_code, a.value])
-    )
+    // ── Scoring ──────────────────────────────────────────────────
+    const answersMap     = Object.fromEntries(data.answers.map(a => [a.question_code, a.value]))
     const branch         = detectBranch(answersMap)
     const businessScore  = computeBusinessScore(answersMap)
     const leadScore      = computeLeadScore(answersMap, businessScore)
     const priorities     = computePriorities(businessScore, branch, answersMap)
-    const recommendations = computeRecommendations(
-      answersMap, businessScore, branch, CATALOG_FALLBACK, data.company?.naf
-    )
-    const funding = computeFunding(data.company, answersMap)
+    const recommendations = computeRecommendations(answersMap, businessScore, branch, CATALOG_FALLBACK, data.company?.naf)
+    const funding        = computeFunding(data.company, answersMap)
 
-    // ── 2. Upsert entreprise ─────────────────────────────────────
+    // ── Upsert entreprise ────────────────────────────────────────
     let companyId: string | undefined
     if (data.company?.name) {
-      const { data: co, error } = await supabase
-        .from('companies')
-        .upsert({
-          siren:        data.company.siren,
-          siret:        data.company.siret,
-          name:         data.company.name,
-          naf:          data.company.naf,
-          naf_label:    data.company.naf_label,
-          city:         data.company.city,
-          postal_code:  data.company.postal_code,
-          employee_band:data.company.employee_band as string | undefined,
-        }, { onConflict: 'siren', ignoreDuplicates: false })
-        .select('id')
-        .single()
-      if (!error && co) companyId = co.id
+      try {
+        if (data.company.siren) {
+          // Si on a un SIREN, upsert par SIREN
+          const { data: co } = await supabase
+            .from('companies')
+            .upsert({
+              siren:         data.company.siren,
+              siret:         data.company.siret,
+              name:          data.company.name,
+              naf:           data.company.naf,
+              naf_label:     data.company.naf_label,
+              city:          data.company.city,
+              postal_code:   data.company.postal_code,
+              employee_band: data.company.employee_band,
+            }, { onConflict: 'siren' })
+            .select('id').single()
+          if (co) companyId = co.id
+        } else {
+          // Sinon, simple insert
+          const { data: co } = await supabase
+            .from('companies')
+            .insert({
+              name:          data.company.name,
+              city:          data.company.city,
+              postal_code:   data.company.postal_code,
+              employee_band: data.company.employee_band,
+            })
+            .select('id').single()
+          if (co) companyId = co.id
+        }
+      } catch (e) {
+        console.error('Company upsert error (non-blocking):', e)
+      }
     }
 
-    // ── 3. Upsert contact ────────────────────────────────────────
+    // ── Upsert contact ───────────────────────────────────────────
     let contactId: string | undefined
     if (data.contact?.email) {
-      const { data: ct, error } = await supabase
-        .from('contacts')
-        .upsert({
-          company_id: companyId,
-          firstname:  data.contact.firstname,
-          email:      data.contact.email,
-          phone:      data.contact.phone,
-          role:       answersMap['P1'],
-        }, { onConflict: 'email', ignoreDuplicates: false })
-        .select('id')
-        .single()
-      if (!error && ct) contactId = ct.id
+      try {
+        const { data: ct } = await supabase
+          .from('contacts')
+          .upsert({
+            company_id: companyId,
+            firstname:  data.contact.firstname,
+            email:      data.contact.email,
+            phone:      data.contact.phone,
+            role:       answersMap['P1'],
+          }, { onConflict: 'email' })
+          .select('id').single()
+        if (ct) contactId = ct.id
+      } catch (e) {
+        console.error('Contact upsert error (non-blocking):', e)
+      }
     }
 
-    // ── 4. Créer le diagnostic ───────────────────────────────────
+    // ── Créer le diagnostic ──────────────────────────────────────
     const { data: diag, error: diagError } = await supabase
       .from('diagnostics')
       .insert({
@@ -118,7 +126,7 @@ export async function POST(req: NextRequest) {
         lead_score:         leadScore.total,
         objective_main:     answersMap['P3'],
         branch,
-        priorities:         priorities,
+        priorities,
         financement_label:  funding[0]?.funder ?? null,
         financement_details:funding,
         completed_at:       new Date().toISOString(),
@@ -127,21 +135,21 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (diagError || !diag) {
-      console.error('Diagnostic insert error:', diagError)
-      return NextResponse.json({ error: 'Database error' }, { status: 500 })
+      console.error('Diagnostic insert error:', JSON.stringify(diagError))
+      return NextResponse.json({ error: `Database error: ${diagError?.message ?? 'unknown'}` }, { status: 500 })
     }
 
-    // ── 5. Insérer les réponses ──────────────────────────────────
+    // ── Insérer les réponses ─────────────────────────────────────
     await supabase.from('answers').insert(
       data.answers.map(a => ({
-        diagnostic_id:  diag.id,
-        question_code:  a.question_code,
-        value:          a.value,
-        score:          a.score,
+        diagnostic_id: diag.id,
+        question_code: a.question_code,
+        value:         a.value,
+        score:         a.score,
       }))
     )
 
-    // ── 6. Insérer les recommandations ───────────────────────────
+    // ── Recommandations ──────────────────────────────────────────
     if (recommendations.length > 0) {
       await supabase.from('recommendations').insert(
         recommendations.map(r => ({
@@ -153,56 +161,21 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ── 7. Consentements ─────────────────────────────────────────
+    // ── Consentements ────────────────────────────────────────────
     if (contactId) {
       await supabase.from('consents').insert([
-        { contact_id: contactId, diagnostic_id: diag.id, type: 'diagnostic_send', granted: data.consentDiag, version: '1.0' },
+        { contact_id: contactId, diagnostic_id: diag.id, type: 'diagnostic_send', granted: data.consentDiag,      version: '1.0' },
         { contact_id: contactId, diagnostic_id: diag.id, type: 'marketing',       granted: data.consentMarketing, version: '1.0' },
       ])
     }
 
-    // ── 8. URL du rapport ─────────────────────────────────────────
+    // ── Report URL ───────────────────────────────────────────────
     const reportUrl = `${process.env.NEXT_PUBLIC_URL}/report/${diag.report_token}`
     await supabase.from('diagnostics').update({ report_url: reportUrl }).eq('id', diag.id)
 
-    // ── 9. Email (non bloquant) ───────────────────────────────────
-    if (data.contact?.email && data.consentDiag) {
-      sendDiagnosticEmail({
-        to:              data.contact.email,
-        firstname:       data.contact.firstname ?? 'vous',
-        businessScore,
-        leadScore,
-        priorities,
-        recommendations,
-        funding,
-        reportUrl,
-      }).then(() => {
-        supabase.from('diagnostics')
-          .update({ email_sent_at: new Date().toISOString() })
-          .eq('id', diag.id)
-      }).catch(console.error)
-    }
-
-    // ── 10. HubSpot (non bloquant, avec retry queue) ─────────────
-    if (data.contact?.email) {
-      syncToHubspot({
-        supabase,
-        diagnosticId:   diag.id,
-        contact:        data.contact,
-        company:        data.company,
-        businessScore,
-        leadScore,
-        priorities,
-        recommendations,
-        funding,
-        reportUrl,
-        answersMap,
-      }).catch(console.error)
-    }
-
     return NextResponse.json({
-      diagnosticId:     diag.id,
-      reportToken:      diag.report_token,
+      diagnosticId:    diag.id,
+      reportToken:     diag.report_token,
       reportUrl,
       businessScore,
       leadScore,

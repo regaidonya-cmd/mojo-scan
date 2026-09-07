@@ -11,15 +11,26 @@ interface Props {
   update: (patch: Partial<DiagnosticState>) => void
 }
 
+const GRAD = 'linear-gradient(135deg, #9B2FCC, #E040AB)'
+
 export function StepCapture({ state, next, update }: Props) {
   const [firstname, setFirstname] = useState(state.contact?.firstname ?? '')
   const [email, setEmail]         = useState(state.contact?.email ?? '')
   const [phone, setPhone]         = useState(state.contact?.phone ?? '')
-  const [consentDiag, setConsentDiag] = useState(state.consentDiag)
-  const [loading, setLoading]     = useState(false)
-  const [error, setError]         = useState('')
+  const [consentDiag, setConsentDiag]       = useState(state.consentDiag)
+  const [consentMarketing, setConsentMarketing] = useState(state.consentMarketing)
+  const [loading, setLoading] = useState(false)
+  const [error, setError]     = useState('')
 
   const isValid = firstname.trim() && email.includes('@') && consentDiag
+
+  const inputStyle = {
+    width: '100%', padding: '12px 14px',
+    borderRadius: 12, border: '1.5px solid #E5E7EB',
+    background: '#fff', fontSize: 15, fontFamily: 'inherit',
+    color: '#111827', outline: 'none',
+    boxSizing: 'border-box' as const,
+  }
 
   const submit = async () => {
     if (!isValid) return
@@ -33,11 +44,15 @@ export function StepCapture({ state, next, update }: Props) {
         answers: Object.entries(state.answers).map(([question_code, value]) => ({
           question_code,
           value,
-          score: 0, // recalculé côté serveur
+          score: 0,
         })),
-        contact: { firstname: firstname.trim(), email: email.trim(), phone: phone.trim() || undefined },
+        contact: {
+          firstname: firstname.trim(),
+          email: email.trim(),
+          phone: phone.trim() || undefined,
+        },
         consentDiag,
-        consentMarketing: state.consentMarketing,
+        consentMarketing,
       }
 
       const res  = await fetch('/api/scan/submit', {
@@ -47,22 +62,23 @@ export function StepCapture({ state, next, update }: Props) {
       })
       const data = await res.json()
 
-      if (!res.ok) throw new Error(data.error ?? 'Erreur serveur')
+      if (!res.ok) throw new Error(data.error ?? data.details ?? 'Erreur serveur')
 
       next({
-        contact: { firstname, email, phone },
+        contact:         { firstname, email, phone },
         consentDiag,
-        id:             data.diagnosticId,
-        reportToken:    data.reportToken,
-        businessScore:  data.businessScore,
-        leadScore:      data.leadScore,
-        priorities:     data.priorities,
-        recommendations:data.recommendations,
-        funding:        data.funding,
+        consentMarketing,
+        id:              data.diagnosticId,
+        reportToken:     data.reportToken,
+        businessScore:   data.businessScore,
+        leadScore:       data.leadScore,
+        priorities:      data.priorities,
+        recommendations: data.recommendations,
+        funding:         data.funding,
       })
 
     } catch (e: any) {
-      setError(e.message ?? 'Une erreur est survenue. Réessayez ou appelez-nous.')
+      setError(e.message ?? 'Une erreur est survenue. Réessayez.')
     } finally {
       setLoading(false)
     }
@@ -73,91 +89,78 @@ export function StepCapture({ state, next, update }: Props) {
       title="Où envoyons-nous votre diagnostic ?"
       subtitle="Votre rapport complet avec recommandations et simulation de financement."
     >
-      <div className="mt-6 space-y-3">
+      <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+
         <div>
-          <label className="text-xs font-medium text-neutral-600 block mb-1">Prénom *</label>
-          <input
-            type="text"
-            value={firstname}
-            onChange={e => setFirstname(e.target.value)}
-            placeholder="Votre prénom"
-            className="w-full px-4 py-3 rounded-xl border border-neutral-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#E85D26]/30 focus:border-[#E85D26] text-base"
-            autoFocus
-          />
+          <label style={{ fontSize: 12, fontWeight: 600, color: '#4B5563', display: 'block', marginBottom: 4 }}>Prénom *</label>
+          <input type="text" value={firstname} onChange={e => setFirstname(e.target.value)}
+            placeholder="Votre prénom" style={inputStyle} autoFocus />
         </div>
 
         <div>
-          <label className="text-xs font-medium text-neutral-600 block mb-1">Email professionnel *</label>
-          <input
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="votre@email.fr"
-            className="w-full px-4 py-3 rounded-xl border border-neutral-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#E85D26]/30 focus:border-[#E85D26] text-base"
-          />
+          <label style={{ fontSize: 12, fontWeight: 600, color: '#4B5563', display: 'block', marginBottom: 4 }}>Email professionnel *</label>
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+            placeholder="votre@email.fr" style={inputStyle} />
         </div>
 
         <div>
-          <label className="text-xs font-medium text-neutral-600 block mb-1">Téléphone (facultatif)</label>
-          <input
-            type="tel"
-            value={phone}
-            onChange={e => setPhone(e.target.value)}
-            placeholder="06 XX XX XX XX"
-            className="w-full px-4 py-3 rounded-xl border border-neutral-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#E85D26]/30 focus:border-[#E85D26] text-base"
-          />
+          <label style={{ fontSize: 12, fontWeight: 600, color: '#4B5563', display: 'block', marginBottom: 4 }}>Téléphone (facultatif)</label>
+          <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+            placeholder="06 XX XX XX XX" style={inputStyle} />
         </div>
 
         {/* Consentements */}
-        <div className="pt-2 space-y-3">
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={consentDiag}
-              onChange={e => setConsentDiag(e.target.checked)}
-              className="mt-0.5 accent-[#E85D26]"
-            />
-            <span className="text-xs text-neutral-600 leading-relaxed">
-              J'accepte que mes données soient utilisées pour recevoir ce diagnostic et être recontacté(e) par MOJO ACADÉMIE. *
-              {' '}<a href="/politique-confidentialite" className="underline" target="_blank">Politique de confidentialité</a>
+        <div style={{ paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+            <input type="checkbox" checked={consentDiag} onChange={e => setConsentDiag(e.target.checked)}
+              style={{ marginTop: 2, accentColor: '#E040AB', width: 16, height: 16, flexShrink: 0 }} />
+            <span style={{ fontSize: 12, color: '#4B5563', lineHeight: 1.5 }}>
+              J'accepte que mes données soient utilisées pour recevoir ce diagnostic et être recontacté(e) par MOJO ACADÉMIE. *{' '}
+              <a href="/politique-confidentialite" target="_blank" style={{ color: '#7B3FCC', textDecoration: 'underline' }}>Politique de confidentialité</a>
             </span>
           </label>
 
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={state.consentMarketing}
-              onChange={e => update({ consentMarketing: e.target.checked })}
-              className="mt-0.5 accent-[#E85D26]"
-            />
-            <span className="text-xs text-neutral-600">
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+            <input type="checkbox" checked={consentMarketing} onChange={e => setConsentMarketing(e.target.checked)}
+              style={{ marginTop: 2, accentColor: '#E040AB', width: 16, height: 16, flexShrink: 0 }} />
+            <span style={{ fontSize: 12, color: '#4B5563', lineHeight: 1.5 }}>
               J'accepte de recevoir des conseils et actualités de MOJO ACADÉMIE (optionnel, désabonnement en 1 clic).
             </span>
           </label>
         </div>
 
+        {/* Erreur */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
-            {error}
+          <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '12px 14px', fontSize: 13, color: '#B91C1C' }}>
+            ⚠️ {error}
           </div>
         )}
 
+        {/* Bouton */}
         <button
           onClick={submit}
           disabled={!isValid || loading}
-          className="w-full bg-[#E85D26] text-white py-4 rounded-xl font-medium hover:bg-[#d04f1e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+          style={{
+            width: '100%', padding: '14px',
+            borderRadius: 'var(--r-md)', border: 'none',
+            background: isValid && !loading ? GRAD : '#E5E7EB',
+            color: isValid && !loading ? '#fff' : '#9CA3AF',
+            fontSize: 15, fontWeight: 700,
+            cursor: isValid && !loading ? 'pointer' : 'not-allowed',
+            fontFamily: 'inherit', marginTop: 4,
+            boxShadow: isValid && !loading ? '0 6px 20px rgba(224,64,171,0.35)' : 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}
         >
           {loading ? (
             <>
-              <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
               Génération en cours…
             </>
-          ) : (
-            'Recevoir mon rapport complet →'
-          )}
+          ) : 'Recevoir mon rapport complet →'}
         </button>
 
-        <p className="text-xs text-center text-neutral-400">
+        <p style={{ fontSize: 11, textAlign: 'center', color: '#9CA3AF', marginTop: 4 }}>
           🔒 Données protégées — Aucun engagement — Désabonnement en 1 clic
         </p>
       </div>
