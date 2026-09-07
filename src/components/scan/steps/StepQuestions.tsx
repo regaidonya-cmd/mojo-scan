@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import type { DiagnosticState, Question } from '@/types'
 import { StepWrapper } from '../StepWrapper'
-import { getQuestionsForBranch, detectBranch } from '@/lib/scoring/questions'
+import { getQuestionsForBranch } from '@/lib/scoring/questions'
+import { detectBranch } from '@/lib/scoring/engine'
 
 interface Props {
   state: DiagnosticState
