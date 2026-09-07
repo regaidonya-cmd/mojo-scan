@@ -4,6 +4,7 @@ import { computeBusinessScore, computeLeadScore, computePriorities, detectBranch
 import { computeRecommendations } from '@/lib/scoring/modules'
 import { computeFunding } from '@/lib/funding/engine'
 import { ENGINE_VERSION } from '@/lib/scoring/version'
+import { syncContactBrevo } from '@/lib/brevo/sync'
 import { z } from 'zod'
 
 const SubmitSchema = z.object({
@@ -15,10 +16,8 @@ const SubmitSchema = z.object({
   }).optional(),
   answers: z.array(z.object({ question_code: z.string(), value: z.string(), score: z.number() })),
   contact: z.object({
-    firstname: z.string(),
-    lastname:  z.string().optional(),
-    email:     z.string().email(),
-    phone:     z.string().optional(),
+    firstname: z.string(), lastname: z.string().optional(),
+    email: z.string().email(), phone: z.string().optional(),
   }).optional(),
   consentDiag:      z.boolean(),
   consentMarketing: z.boolean(),
@@ -39,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     const answersMap = Object.fromEntries(data.answers.map(a => [a.question_code, a.value]))
 
-    // ── Scoring (avec DATA_SOURCE logging) ────────────────────
+    // ── Scoring ────────────────────────────────────────────────
     const { top, parcoursMatch, moduleScores, topWithPrerequisite } = computeRecommendations(
       answersMap, data.company?.naf, 3
     )
@@ -50,31 +49,26 @@ export async function POST(req: NextRequest) {
     const priorities    = computePriorities(businessScore, branch, answersMap)
     const funding       = computeFunding(data.company, answersMap)
 
-    // Sérialiser recommandations (sans codes techniques)
     const recommendations = topWithPrerequisite.map((ps, i) => ({
-      rank:         i + 1,
+      rank: i + 1,
       id_programme: ps.programme.id,
-      titre:        ps.programme.titre,
-      duree_h:      ps.programme.duree_h,
-      tarif_ht:     ps.programme.tarif_ht,
-      pilier:       ps.programme.pilier,
-      objectif:     ps.programme.objectif,
-      resultat:     ps.programme.resultat,
-      score:        ps.score_total,
-      score_besoins:ps.score_besoins,
-      prerequis:    ps.prerequis.status,
-      log:          ps.log,  // interne uniquement
+      titre:   ps.programme.titre,
+      duree_h: ps.programme.duree_h,
+      tarif_ht:ps.programme.tarif_ht,
+      pilier:  ps.programme.pilier,
+      objectif:ps.programme.objectif,
+      resultat:ps.programme.resultat,
+      score:   ps.score_total,
+      score_besoins: ps.score_besoins,
+      prerequis: ps.prerequis.status,
+      log: ps.log,
     }))
 
     const parcoursData = parcoursMatch.confiance !== 'AUCUN_PARCOURS_METIER' ? {
-      id:         parcoursMatch.parcours!.id,
-      metier:     parcoursMatch.parcours!.metier,
-      nom:        parcoursMatch.parcours!.nom,
-      duree_h:    parcoursMatch.parcours!.duree_h,
-      tarif_ht:   parcoursMatch.parcours!.tarif_ht,
-      promesse:   parcoursMatch.parcours!.promesse,
-      confiance:  parcoursMatch.confiance,
-      // Raison lisible prospect (jamais de codes internes)
+      id: parcoursMatch.parcours!.id, metier: parcoursMatch.parcours!.metier,
+      nom: parcoursMatch.parcours!.nom, duree_h: parcoursMatch.parcours!.duree_h,
+      tarif_ht: parcoursMatch.parcours!.tarif_ht, promesse: parcoursMatch.parcours!.promesse,
+      confiance: parcoursMatch.confiance,
       raison: parcoursMatch.confiance === 'MATCH_FORT'
         ? `Votre activité correspond au parcours métier "${parcoursMatch.parcours!.metier}".`
         : `Votre activité pourrait correspondre au parcours "${parcoursMatch.parcours!.metier}" — à confirmer lors d'un échange.`,
@@ -102,36 +96,62 @@ export async function POST(req: NextRequest) {
       } catch (e) { console.error('[Company]', e) }
     }
 
-    // ── Upsert contact ─────────────────────────────────────────
+    // ── Upsert contact — déduplication par email ───────────────
     let contactId: string | undefined
+    const consentDate = data.consentDate ?? new Date().toISOString()
+
     if (data.contact?.email) {
       try {
+        // Enrichissement des données contact avec les résultats du diagnostic
+        const contactPayload = {
+          company_id: companyId,
+          firstname:  data.contact.firstname,
+          lastname:   data.contact.lastname,
+          email:      data.contact.email,
+          phone:      data.contact.phone,
+          role:       answersMap['P1'],
+          status:     'DIAGNOSTIC_COMPLETED',
+          last_activity_at: new Date().toISOString(),
+          last_diagnostic_at: new Date().toISOString(),
+          segment_metier:       parcoursMatch.parcours?.metier ?? null,
+          parcours_id:          parcoursData?.id ?? null,
+          parcours_match_type:  parcoursMatch.confiance,
+          recommended_program_1: recommendations[0]?.id_programme ?? null,
+          recommended_program_2: recommendations[1]?.id_programme ?? null,
+          recommended_program_3: recommendations[2]?.id_programme ?? null,
+          source_lead:          `mojo-scan-${data.mode}`,
+          marketing_consent:    data.consentMarketing,
+          marketing_consent_date: data.consentMarketing ? consentDate : null,
+          marketing_consent_source: data.consentMarketing ? (data.consentSource ?? 'mojo-scan') : null,
+        }
+
+        // upsert par email — un même prospect peut faire plusieurs diagnostics
         const { data: ct } = await supabase.from('contacts')
-          .upsert({
-            company_id: companyId,
-            firstname:  data.contact.firstname,
-            lastname:   data.contact.lastname,
-            email:      data.contact.email,
-            phone:      data.contact.phone,
-            role:       answersMap['P1'],
-          }, { onConflict: 'email' })
-          .select('id').single()
-        if (ct) contactId = ct.id
+          .upsert(contactPayload, { onConflict: 'email' })
+          .select('id, diagnostic_count').single()
+
+        if (ct) {
+          contactId = ct.id
+          // Incrémenter le compteur de diagnostics
+          await supabase.from('contacts')
+            .update({ diagnostic_count: (ct.diagnostic_count ?? 0) + 1 })
+            .eq('id', ct.id)
+        }
       } catch (e) { console.error('[Contact]', e) }
     }
 
-    // ── Snapshot interne du diagnostic ─────────────────────────
+    // ── Snapshot interne ───────────────────────────────────────
     const internalSnapshot = {
       engine_version: ENGINE_VERSION,
       answers: answersMap,
       module_scores: moduleScores.slice(0, 15).map(m => ({ id: m.id_module, score: m.score })),
       programme_scores: top.map(ps => ({
         id: ps.programme.id, score_total: ps.score_total,
-        score_besoins: ps.score_besoins, bonus: ps.score_bonus_parcours, modules_forts: ps.modules_forts,
+        score_besoins: ps.score_besoins, bonus: ps.score_bonus_parcours,
       })),
-      parcours_id:     parcoursMatch.parcours?.id ?? null,
-      match_type:      parcoursMatch.confiance,
-      data_source:     'SUPABASE', // ou 'FALLBACK' — loggé dans computeRecommendations
+      parcours_id:  parcoursMatch.parcours?.id ?? null,
+      match_type:   parcoursMatch.confiance,
+      data_source:  'FALLBACK', // sera mis à jour depuis db-loader si Supabase utilisé
     }
 
     // ── Créer le diagnostic ────────────────────────────────────
@@ -144,56 +164,87 @@ export async function POST(req: NextRequest) {
         score_ia: businessScore.ia, lead_score: leadScore.total,
         objective_main: answersMap['P3'], branch, priorities,
         financement_label: funding[0]?.funder ?? null, financement_details: funding,
-        // Versioning — permet de savoir avec quelle version chaque diagnostic a été calculé
-        catalog_version:   ENGINE_VERSION.catalog,
-        scoring_version:   ENGINE_VERSION.scoring,
-        diagnostic_version:ENGINE_VERSION.diagnostic,
-        // Snapshot interne (non affiché au prospect)
-        internal_snapshot: internalSnapshot,
+        catalog_version:    ENGINE_VERSION.catalog,
+        scoring_version:    ENGINE_VERSION.scoring,
+        diagnostic_version: ENGINE_VERSION.diagnostic,
+        internal_snapshot:  internalSnapshot,
         completed_at: new Date().toISOString(),
       })
       .select('id, report_token')
       .single()
 
     if (diagError || !diag) {
-      console.error('[Diagnostic] insert error:', diagError?.message, diagError?.code)
+      console.error('[Diagnostic]', diagError?.message)
       return NextResponse.json({ error: `Database error: ${diagError?.message}` }, { status: 500 })
     }
 
-    // ── Réponses ───────────────────────────────────────────────
+    // ── Réponses + Recommandations + Consentements ─────────────
     await supabase.from('answers').insert(
       data.answers.map(a => ({ diagnostic_id: diag.id, question_code: a.question_code, value: a.value, score: a.score }))
     )
 
-    // ── Recommandations ────────────────────────────────────────
     if (recommendations.length > 0) {
       await supabase.from('recommendations').insert(
-        recommendations.map(r => ({
-          diagnostic_id: diag.id, catalog_code: r.id_programme,
-          rank: r.rank, reason: r.log,
-        }))
+        recommendations.map(r => ({ diagnostic_id: diag.id, catalog_code: r.id_programme, rank: r.rank, reason: r.log }))
       )
     }
 
-    // ── Consentements (traçables séparément) ───────────────────
     if (contactId) {
-      const consentDate = data.consentDate ?? new Date().toISOString()
       await supabase.from('consents').insert([
-        {
-          contact_id: contactId, diagnostic_id: diag.id,
-          type: 'diagnostic_send', granted: data.consentDiag,
-          version: '1.0', granted_at: consentDate, source: data.consentSource ?? 'mojo-scan',
-        },
-        {
-          contact_id: contactId, diagnostic_id: diag.id,
-          type: 'marketing', granted: data.consentMarketing,
-          version: '1.0', granted_at: consentDate, source: data.consentSource ?? 'mojo-scan',
-        },
+        { contact_id: contactId, diagnostic_id: diag.id, type: 'diagnostic_send',
+          granted: data.consentDiag, version: '1.0', granted_at: consentDate, source: data.consentSource ?? 'mojo-scan' },
+        { contact_id: contactId, diagnostic_id: diag.id, type: 'marketing',
+          granted: data.consentMarketing, version: '1.0', granted_at: consentDate, source: data.consentSource ?? 'mojo-scan' },
       ])
     }
 
+    // ── Report URL ─────────────────────────────────────────────
     const reportUrl = `${process.env.NEXT_PUBLIC_URL}/report/${diag.report_token}`
     await supabase.from('diagnostics').update({ report_url: reportUrl }).eq('id', diag.id)
+
+    // ── Event analytics ────────────────────────────────────────
+    await supabase.from('funnel_events').insert({
+      diagnostic_id: diag.id, contact_id: contactId,
+      event_type: 'diagnostic_completed',
+      properties: { mode: data.mode, branch, lead_score: leadScore.total },
+    })
+
+    // ── Brevo — uniquement si consentement marketing ───────────
+    // Non bloquant : le diagnostic est déjà sauvegardé
+    if (data.consentMarketing && data.contact?.email && contactId) {
+      syncContactBrevo({
+        email:       data.contact.email,
+        firstname:   data.contact.firstname,
+        lastname:    data.contact.lastname,
+        phone:       data.contact.phone,
+        company:     data.company?.name,
+        siret:       data.company?.siret,
+        ape:         data.company?.naf,
+        ape_label:   data.company?.naf_label,
+        segment_metier: parcoursMatch.parcours?.metier,
+        parcours:    parcoursData?.id,
+        formation_1: recommendations[0]?.titre,
+        formation_2: recommendations[1]?.titre,
+        formation_3: recommendations[2]?.titre,
+        source:      `mojo-scan-${data.mode}`,
+        diagnostic_date: new Date().toISOString().split('T')[0],
+        statut: 'DIAGNOSTIC_COMPLETED',
+      }).then(result => {
+        if (result.success && contactId) {
+          supabase.from('contacts')
+            .update({ brevo_synced_at: new Date().toISOString(), brevo_contact_id: result.contact_id })
+            .eq('id', contactId).then(() => {})
+          supabase.from('funnel_events').insert({
+            diagnostic_id: diag.id, contact_id: contactId,
+            event_type: 'brevo_synced', properties: { success: true },
+          }).then(() => {})
+        } else {
+          console.warn('[Brevo] Sync non bloquante échouée:', result.error)
+        }
+      }).catch(e => console.error('[Brevo] Exception non bloquante:', e))
+    } else if (!data.consentMarketing) {
+      console.log(`[Brevo] marketing_consent=false — sync ignorée pour ${data.contact?.email}`)
+    }
 
     return NextResponse.json({
       diagnosticId:    diag.id,
@@ -205,7 +256,6 @@ export async function POST(req: NextRequest) {
       recommendations,
       parcoursMatch:   parcoursData,
       funding,
-      // Pas de logs dans la réponse prospect
     })
 
   } catch (err) {

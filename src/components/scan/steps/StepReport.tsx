@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import type { DiagnosticState } from '@/types'
 import type { ParcoursMatch } from '@/lib/scoring/modules'
 
@@ -129,6 +130,8 @@ function buildPourquoi(rec: any, answers: Record<string, string>): string {
 // ── Plan d'action personnalisé ────────────────────────────────
 function buildPlanAction(state: DiagnosticState, recs: any[]): {maintenant: string; ensuite: string; a90j: string} {
   const obj = (state.answers['P3'] ?? '').split(',')[0]
+  const [emailSent, setEmailSent] = useState(false)
+  const [emailLoading, setEmailLoading] = useState(false)
   const rec1 = recs[0]
   const id1 = rec1?.id_programme ?? rec1?.item?.code ?? ''
 
@@ -199,6 +202,30 @@ export function StepReport({ state }: Props) {
   // Parcours
   const parcoursMatch = parcoursData?.confiance
   const parcours = parcoursData?.parcours
+
+  const calendlyUrl = `https://calendly.com/mojoacademie?name=${encodeURIComponent((state.contact?.firstname ?? '') + ' ' + (state.contact?.lastname ?? ''))}&email=${encodeURIComponent(state.contact?.email ?? '')}&utm_source=mojo_lead_engine`
+
+  const handleSendEmail = async () => {
+    if (emailSent || emailLoading || !state.contact?.email) return
+    setEmailLoading(true)
+    try {
+      const res = await fetch('/api/scan/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          diagnosticId: state.id,
+          email: state.contact.email,
+          firstname: state.contact.firstname,
+          company: state.company?.name,
+          priorities: state.priorities,
+          recommendations: (state as any).recommendations,
+          parcoursMatch: (state as any).parcoursMatch,
+        }),
+      })
+      if (res.ok) setEmailSent(true)
+    } catch (e) { console.error(e) }
+    finally { setEmailLoading(false) }
+  }
 
   const s = (x: any) => ({ style: x })
 
@@ -485,7 +512,7 @@ export function StepReport({ state }: Props) {
             ))}
           </div>
         )}
-        <a href="https://calendly.com/mojoacademie" target="_blank" rel="noopener noreferrer" style={{ display:"inline-block", fontSize: 13, fontWeight: 700, color: "#16A34A", background: "none", border: "1.5px solid #16A34A", borderRadius: 10, padding: "8px 16px", cursor: "pointer", fontFamily: "inherit", textDecoration: "none" }}>Vérifier mes possibilités de financement →</a>
+        <a href={calendlyUrl} target="_blank" rel="noopener noreferrer" style={{ display:"inline-block", fontSize: 13, fontWeight: 700, color: "#16A34A", background: "none", border: "1.5px solid #16A34A", borderRadius: 10, padding: "8px 16px", cursor: "pointer", fontFamily: "inherit", textDecoration: "none" }}>Vérifier mes possibilités de financement →</a>
       </div>
 
       {/* ── H. PLAN D'ACTION ── */}
@@ -540,7 +567,7 @@ export function StepReport({ state }: Props) {
           Un conseiller MOJO Académie peut vous aider à prioriser, financer et planifier votre parcours de formation.
         </p>
         <a
-          href="https://calendly.com/mojoacademie"
+          href={calendlyUrl}
           target="_blank"
           rel="noopener noreferrer"
           style={{
@@ -559,7 +586,7 @@ export function StepReport({ state }: Props) {
           background: 'transparent', color: 'rgba(255,255,255,0.8)',
           fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
         }}>
-          📧 Recevoir mon diagnostic par email
+          {emailSent ? '✓ Email envoyé !' : emailLoading ? 'Envoi…' : '📧 Recevoir mon diagnostic par email'}
         </button>
       </div>
     </div>
