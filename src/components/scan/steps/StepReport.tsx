@@ -147,11 +147,20 @@ export function StepReport({ state }: Props) {
   const parcoursMatch = parcoursData?.confiance
 
   // Calendly paramétré avec nom + email
-  const calendlyBase = process.env.NEXT_PUBLIC_CALENDLY_URL ?? ''
+  // Calendly URL depuis env (à configurer dans Vercel comme NEXT_PUBLIC_CALENDLY_URL)
+  const calendlyBase = process.env.NEXT_PUBLIC_CALENDLY_URL ?? (state as any).calendlyUrl ?? ''
   const calendlyUrl = calendlyBase ? `${calendlyBase}?name=${encodeURIComponent((state.contact?.firstname ?? '') + ' ' + (state.contact?.lastname ?? ''))}&email=${encodeURIComponent(state.contact?.email ?? '')}&utm_source=mojo_lead_engine` : ''
 
   const handleSendEmail = async () => {
-    if (emailSent || emailLoading || !state.contact?.email) return
+    if (emailSent || emailLoading) return
+    if (!state.contact?.email) {
+      alert('Email non disponible — veuillez réessayer le parcours.')
+      return
+    }
+    if (!state.id) {
+      alert('Diagnostic non enregistré — veuillez réessayer.')
+      return
+    }
     setEmailLoading(true)
     try {
       const res = await fetch('/api/scan/send-email', {
@@ -167,8 +176,15 @@ export function StepReport({ state }: Props) {
           parcoursMatch: parcoursData,
         }),
       })
-      if (res.ok) setEmailSent(true)
-    } catch (e) { console.error(e) }
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setEmailSent(true)
+      } else {
+        alert('Erreur envoi email : ' + (data.error ?? 'inconnue'))
+      }
+    } catch (e: any) {
+      alert('Erreur réseau : ' + e.message)
+    }
     finally { setEmailLoading(false) }
   }
 

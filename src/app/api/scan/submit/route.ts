@@ -256,6 +256,7 @@ export async function POST(req: NextRequest) {
       recommendations,
       parcoursMatch:   parcoursData,
       funding,
+      calendlyUrl:     process.env.CALENDLY_URL ?? null,
     })
 
   } catch (err) {
