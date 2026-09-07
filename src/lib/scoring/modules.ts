@@ -1,18 +1,19 @@
 // ══════════════════════════════════════════════════════════════
-// MOJO LEAD ENGINE — Moteur de modules
-// Réponses → Modules détectés → Scoring des 30 programmes
+// MOJO LEAD ENGINE — Moteur de scoring v2
+// Aucune association Question→Module n'est codée en dur ici.
+// Toutes les associations viennent de MAPPING_QUESTIONS_MODULES.
 // ══════════════════════════════════════════════════════════════
 
 import { PROGRAMMES, MAPPING_PROG_MOD, PARCOURS, APE_MAPPING } from './catalog'
+import { MAPPING_QUESTIONS_MODULES } from './mapping_questions_modules'
+import { MAPPING_PARCOURS_PROGRAMMES } from './mapping_parcours_programmes'
 import type { Programme, Parcours } from './catalog'
 
-// ── Configuration pondération (modifiable sans toucher à l'algo)
+// ── Configuration — tous les paramètres modifiables ici ────────
 export const SCORING_CONFIG = {
-  // Poids du bonus parcours métier sur le score des formations
-  BONUS_PARCOURS_POIDS: 8,        // points ajoutés par formation prioritaire du parcours
-  // Seuil confiance APE pour match fort vs à confirmer
-  SEUIL_MATCH_FORT: 'Forte' as const,
-  // Nombre de recommandations à retourner
+  BONUS_PARCOURS_POIDS: 8,
+  // Seuil de poids pour qu'un module soit "fortement concordant" (départage ex-aequo)
+  SEUIL_MODULE_FORT: 3,
   TOP_N_PROGRAMMES: 3,
 }
 
@@ -20,222 +21,165 @@ export const SCORING_CONFIG = {
 export interface ModuleScore {
   id_module: string
   score: number
-  source: string  // "Q-P3-clients", "Q-I3-daily", etc.
+  sources: string[]
 }
 
 export interface ProgrammeScore {
   programme: Programme
-  score: number
-  modules_contribution: { id_module: string; contribution: number }[]
-  bonus_parcours: number
-  log: string  // traçabilité : "PROG-013 car MOD-FID-01 +25, MOD-WA-01 +9, bonus PARC-004 +8"
+  score_total: number
+  score_besoins: number         // score hors bonus parcours (pour départage ex-aequo)
+  score_bonus_parcours: number
+  modules_forts: number         // nb modules avec poids_prog_mod >= SEUIL_MODULE_FORT (ex-aequo)
+  contributions: { id_module: string; score_module: number; poids_prog_mod: number; contribution: number }[]
+  log: string
 }
 
 export interface ParcoursMatch {
-  parcours: Parcours
+  parcours: Parcours | null
   confiance: 'MATCH_FORT' | 'MATCH_A_CONFIRMER' | 'AUCUN_PARCOURS_METIER'
   raison: string
 }
 
-// ── Mapping Questions → Modules ──────────────────────────────────
-// Construit à partir des mots-clés des réponses et de la logique métier
-// Structure : { [questionCode_valeurReponse]: { [moduleId]: poids } }
-const QUESTION_MODULE_MAP: Record<string, Record<string, number>> = {
-
-  // P3 — Objectif principal
-  'P3_clients':        { 'MOD-ACQ-01':5, 'MOD-GBP-01':4, 'MOD-SEO-02':4, 'MOD-SOC-01':3 },
-  'P3_google':         { 'MOD-SEO-02':5, 'MOD-GBP-01':5, 'MOD-SEO-01':4, 'MOD-REP-01':3 },
-  'P3_reseaux':        { 'MOD-SOC-01':5, 'MOD-CONT-01':4, 'MOD-SOC-02':4, 'MOD-CONT-03':3 },
-  'P3_fidelisation':   { 'MOD-FID-01':5, 'MOD-CRM-01':4, 'MOD-EMAIL-01':3, 'MOD-WA-01':3 },
-  'P3_site':           { 'MOD-WEB-01':5, 'MOD-WEB-04':4, 'MOD-WEB-03':3, 'MOD-UX-03':2 },
-  'P3_temps':          { 'MOD-IA-05':5, 'MOD-AUTO-01':5, 'MOD-ORG-02':4, 'MOD-PROC-02':3 },
-  'P3_automatisation': { 'MOD-AUTO-01':5, 'MOD-AUTO-05':5, 'MOD-IA-02':4, 'MOD-PROC-01':3 },
-  'P3_ia':             { 'MOD-IA-01':5, 'MOD-IA-02':5, 'MOD-IA-03':4, 'MOD-IA-04':4 },
-  'P3_organisation':   { 'MOD-ORG-02':5, 'MOD-PROC-01':4, 'MOD-ORG-01':4, 'MOD-ORG-06':3 },
-  'P3_competences':    { 'MOD-IA-01':4, 'MOD-SEO-02':3, 'MOD-SOC-01':3, 'MOD-CRM-01':3 },
-
-  // A1 — Origine des clients (acquisition)
-  'A1_bouche':   { 'MOD-GBP-01':5, 'MOD-SEO-02':5, 'MOD-REP-01':4, 'MOD-SOC-01':3 },
-  'A1_google':   { 'MOD-SEO-01':4, 'MOD-SEO-02':4, 'MOD-GBP-01':3 },
-  'A1_reseaux':  { 'MOD-SOC-01':4, 'MOD-CONT-01':3 },
-  'A1_mixed':    { 'MOD-ACQ-01':3, 'MOD-DATA-07':3 },
-  'A1_physique': { 'MOD-GBP-01':4, 'MOD-SEO-02':4, 'MOD-ACQ-01':3 },
-
-  // A2 — Google Business Profile
-  'A2_optimized':  { 'MOD-REP-01':3, 'MOD-GBP-02':2 },
-  'A2_basic':      { 'MOD-GBP-01':5, 'MOD-REP-01':4, 'MOD-GBP-02':3 },
-  'A2_no':         { 'MOD-GBP-01':5, 'MOD-SEO-02':5, 'MOD-GBP-02':4 },
-  'A2_dontknow':   { 'MOD-GBP-01':5, 'MOD-SEO-02':4 },
-
-  // A3 — Avis Google
-  'A3_more50':  { 'MOD-REP-01':1 },
-  'A3_20to50':  { 'MOD-REP-01':3, 'MOD-GBP-01':2 },
-  'A3_lt20':    { 'MOD-REP-01':5, 'MOD-GBP-01':3 },
-  'A3_none':    { 'MOD-REP-01':5, 'MOD-GBP-01':4, 'MOD-SEO-02':3 },
-
-  // A4 — Réseaux sociaux
-  'A4_active':    { 'MOD-CONT-03':3, 'MOD-SOC-01':2 },
-  'A4_sometimes': { 'MOD-SOC-01':4, 'MOD-CONT-01':4, 'MOD-CONT-03':3 },
-  'A4_rarely':    { 'MOD-SOC-01':5, 'MOD-CONT-01':5, 'MOD-CONT-03':4, 'MOD-SOC-02':3 },
-
-  // A5 — Site web
-  'A5_optimized': { 'MOD-WEB-04':3, 'MOD-DATA-07':2 },
-  'A5_basic':     { 'MOD-WEB-01':4, 'MOD-WEB-04':4, 'MOD-WEB-06':3, 'MOD-UX-03':3 },
-  'A5_no':        { 'MOD-WEB-01':5, 'MOD-WEB-03':4, 'MOD-SEO-01':4 },
-
-  // C1 — Suivi des demandes
-  'C1_crm':     { 'MOD-CRM-02':3, 'MOD-DATA-03':2 },
-  'C1_sheets':  { 'MOD-CRM-01':4, 'MOD-CRM-02':4, 'MOD-CRM-05':3 },
-  'C1_memory':  { 'MOD-CRM-01':5, 'MOD-CRM-02':5, 'MOD-CRM-03':4, 'MOD-CRM-05':4 },
-  'C1_nothing': { 'MOD-CRM-01':5, 'MOD-CRM-03':5, 'MOD-CRM-05':4, 'MOD-AUTO-01':3 },
-
-  // C2 — Relances
-  'C2_auto':   { 'MOD-AUTO-05':2, 'MOD-CRM-05':2 },
-  'C2_manual': { 'MOD-AUTO-01':4, 'MOD-CRM-05':3 },
-  'C2_rarely': { 'MOD-CRM-05':5, 'MOD-AUTO-01':4, 'MOD-AUTO-05':4 },
-  'C2_never':  { 'MOD-CRM-05':5, 'MOD-AUTO-01':5, 'MOD-AUTO-05':5 },
-
-  // C3 — Base clients
-  'C3_crm':    { 'MOD-CRM-04':3, 'MOD-FID-01':2 },
-  'C3_sheets': { 'MOD-CRM-01':3, 'MOD-CRM-04':3 },
-  'C3_basic':  { 'MOD-CRM-01':4, 'MOD-CRM-04':4, 'MOD-FID-01':3 },
-  'C3_no':     { 'MOD-CRM-01':5, 'MOD-CRM-03':5, 'MOD-FID-01':4 },
-
-  // C4 — Fidélisation
-  'C4_regular':   { 'MOD-FID-01':2, 'MOD-EMAIL-01':2 },
-  'C4_sometimes': { 'MOD-FID-01':4, 'MOD-EMAIL-01':3, 'MOD-WA-01':3 },
-  'C4_no':        { 'MOD-FID-01':5, 'MOD-FID-02':4, 'MOD-EMAIL-01':4, 'MOD-WA-01':4 },
-
-  // I1 — Outils digitaux
-  'I1_many':  { 'MOD-IA-02':3, 'MOD-AUTO-01':2 },
-  'I1_some':  { 'MOD-ORG-02':3, 'MOD-AUTO-01':3, 'MOD-IA-02':3 },
-  'I1_few':   { 'MOD-ORG-01':5, 'MOD-ORG-02':4, 'MOD-IA-01':4, 'MOD-AUTO-01':3 },
-  'I1_none':  { 'MOD-ORG-01':5, 'MOD-IA-01':5, 'MOD-ORG-02':5, 'MOD-AUTO-01':4 },
-
-  // I2 — Temps perdu sur tâches répétitives
-  'I2_lt2h':   { 'MOD-IA-05':1 },
-  'I2_2to5h':  { 'MOD-AUTO-01':4, 'MOD-IA-05':3, 'MOD-PROC-02':3 },
-  'I2_5to10h': { 'MOD-AUTO-01':5, 'MOD-AUTO-05':4, 'MOD-IA-05':4, 'MOD-PROC-02':4 },
-  'I2_more10h':{ 'MOD-AUTO-01':5, 'MOD-AUTO-05':5, 'MOD-IA-05':5, 'MOD-PROC-01':4, 'MOD-PROC-02':5 },
-
-  // I3 — Usage IA
-  'I3_daily':    { 'MOD-IA-04':3, 'MOD-IA-08':3 },
-  'I3_sometimes':{ 'MOD-IA-03':4, 'MOD-IA-04':4, 'MOD-IA-05':3 },
-  'I3_tried':    { 'MOD-IA-01':4, 'MOD-IA-03':4, 'MOD-IA-04':4, 'MOD-IA-05':4 },
-  'I3_never':    { 'MOD-IA-01':5, 'MOD-IA-02':5, 'MOD-IA-03':4, 'MOD-IA-04':4, 'MOD-IA-05':5 },
-
-  // I4 — Automatisations existantes
-  'I4_several': { 'MOD-AUTO-05':2, 'MOD-IA-08':3 },
-  'I4_one':     { 'MOD-AUTO-01':3, 'MOD-AUTO-05':3 },
-  'I4_no':      { 'MOD-AUTO-01':5, 'MOD-AUTO-05':5, 'MOD-AUTO-02':4, 'MOD-PROC-01':4 },
+export interface PrerequisCheck {
+  status: 'PREREQUIS_OK' | 'PREREQUIS_A_VERIFIER' | 'PREREQUIS_NON_REMPLI'
+  detail?: string
 }
 
-// ── Étape 1 : Réponses → Scores de modules ───────────────────────
+// ── Étape 1 : Réponses → Scores de modules (depuis Mapping_Questions_Modules) ──
 export function computeModuleScores(answers: Record<string, string>): ModuleScore[] {
   const accumulator: Record<string, { score: number; sources: string[] }> = {}
+
+  // Filtrer les associations actives uniquement
+  const activeMapping = MAPPING_QUESTIONS_MODULES.filter(m => m.actif)
 
   for (const [qCode, value] of Object.entries(answers)) {
     // Multi-select : P3 peut contenir "fidelisation,temps"
     const values = value.split(',').map(v => v.trim())
 
     for (const v of values) {
-      const key = `${qCode}_${v}`
-      const moduleWeights = QUESTION_MODULE_MAP[key]
-      if (!moduleWeights) continue
+      // Chercher toutes les associations pour cette question + réponse
+      const associations = activeMapping.filter(
+        m => m.id_question === qCode && m.valeur_reponse === v
+      )
 
-      for (const [modId, poids] of Object.entries(moduleWeights)) {
-        if (!accumulator[modId]) accumulator[modId] = { score: 0, sources: [] }
-        accumulator[modId].score += poids
-        accumulator[modId].sources.push(`${key}:+${poids}`)
+      for (const assoc of associations) {
+        if (!accumulator[assoc.id_module]) {
+          accumulator[assoc.id_module] = { score: 0, sources: [] }
+        }
+        accumulator[assoc.id_module].score += assoc.poids
+        accumulator[assoc.id_module].sources.push(
+          `${qCode}_${v} → ${assoc.id_module} (+${assoc.poids})`
+        )
       }
     }
   }
 
   return Object.entries(accumulator)
-    .map(([id_module, { score, sources }]) => ({
-      id_module,
-      score,
-      source: sources.join(', '),
-    }))
+    .map(([id_module, { score, sources }]) => ({ id_module, score, sources }))
     .sort((a, b) => b.score - a.score)
 }
 
 // ── Étape 2 : Scores modules → Scoring des 30 programmes ─────────
 export function computeProgrammeScores(
   moduleScores: ModuleScore[],
-  parcoursMatch: ParcoursMatch | null
+  parcoursMatch: ParcoursMatch
 ): ProgrammeScore[] {
   const moduleMap: Record<string, number> = {}
   for (const ms of moduleScores) {
     moduleMap[ms.id_module] = ms.score
   }
 
+  // Récupérer les programmes prioritaires du parcours depuis Mapping_Parcours_Programmes
+  const parcoursPrioProgIds = parcoursMatch.parcours
+    ? MAPPING_PARCOURS_PROGRAMMES
+        .filter(m => m.id_parcours === parcoursMatch.parcours!.id && m.actif)
+        .map(m => m.id_programme)
+    : []
+
   const scores: ProgrammeScore[] = []
 
   for (const prog of PROGRAMMES.filter(p => p.actif)) {
     const mappings = MAPPING_PROG_MOD.filter(m => m.id_programme === prog.id)
-    let score = 0
-    const contributions: { id_module: string; contribution: number }[] = []
+    let score_besoins = 0
+    let modules_forts = 0
+    const contributions: ProgrammeScore['contributions'] = []
 
     for (const m of mappings) {
       const modScore = moduleMap[m.id_module] ?? 0
       const contribution = modScore * m.poids
       if (contribution > 0) {
-        score += contribution
-        contributions.push({ id_module: m.id_module, contribution })
+        score_besoins += contribution
+        contributions.push({
+          id_module: m.id_module,
+          score_module: modScore,
+          poids_prog_mod: m.poids,
+          contribution,
+        })
+        // Module fortement concordant : poids_prog_mod >= seuil
+        if (m.poids >= SCORING_CONFIG.SEUIL_MODULE_FORT) {
+          modules_forts++
+        }
       }
     }
 
-    // Bonus parcours métier
-    let bonusParcours = 0
-    if (parcoursMatch && parcoursMatch.confiance !== 'AUCUN_PARCOURS_METIER') {
-      const isPrioritaire = parcoursMatch.parcours.programmes_prioritaires.includes(prog.id)
-      if (isPrioritaire) {
-        const multiplicateur = parcoursMatch.confiance === 'MATCH_FORT' ? 1.0 : 0.5
-        bonusParcours = Math.round(SCORING_CONFIG.BONUS_PARCOURS_POIDS * multiplicateur)
-        score += bonusParcours
-      }
+    // Bonus parcours métier — uniquement si programme dans les prioritaires du parcours
+    let score_bonus_parcours = 0
+    if (
+      parcoursMatch.parcours &&
+      parcoursMatch.confiance !== 'AUCUN_PARCOURS_METIER' &&
+      parcoursPrioProgIds.includes(prog.id)
+    ) {
+      const multiplicateur = parcoursMatch.confiance === 'MATCH_FORT' ? 1.0 : 0.5
+      score_bonus_parcours = Math.round(SCORING_CONFIG.BONUS_PARCOURS_POIDS * multiplicateur)
     }
 
-    if (score > 0) {
-      // Log traçabilité
-      const topContribs = contributions
+    const score_total = score_besoins + score_bonus_parcours
+
+    if (score_total > 0) {
+      // Log traçabilité complet
+      const topContribs = [...contributions]
         .sort((a, b) => b.contribution - a.contribution)
-        .slice(0, 3)
-        .map(c => `${c.id_module} +${c.contribution}`)
+        .slice(0, 4)
+        .map(c => `${c.id_module} [${c.score_module}×${c.poids_prog_mod}=+${c.contribution}]`)
         .join(', ')
-      const logParcours = bonusParcours > 0 ? `, bonus ${parcoursMatch?.parcours.id} +${bonusParcours}` : ''
-      const log = `${prog.id} recommandé car ${topContribs}${logParcours}`
+      const logBonus = score_bonus_parcours > 0
+        ? `, bonus ${parcoursMatch.parcours!.id} (${parcoursMatch.confiance}) +${score_bonus_parcours}`
+        : ''
+      const log = `${prog.id} — Score: ${score_total} | Besoins: ${score_besoins} | ${topContribs}${logBonus}`
 
-      scores.push({ programme: prog, score, modules_contribution: contributions, bonus_parcours: bonusParcours, log })
+      scores.push({ programme: prog, score_total, score_besoins, score_bonus_parcours, modules_forts, contributions, log })
     }
   }
 
-  return scores.sort((a, b) => b.score - a.score)
+  // Tri déterministe avec départage ex-aequo :
+  // 1. Score total décroissant
+  // 2. Score besoins hors bonus décroissant
+  // 3. Nombre de modules fortement concordants décroissant (poids_prog_mod >= SEUIL_MODULE_FORT=3)
+  // 4. ID_Programme croissant (garantit reproductibilité absolue)
+  return scores.sort((a, b) => {
+    if (b.score_total !== a.score_total) return b.score_total - a.score_total
+    if (b.score_besoins !== a.score_besoins) return b.score_besoins - a.score_besoins
+    if (b.modules_forts !== a.modules_forts) return b.modules_forts - a.modules_forts
+    return a.programme.id.localeCompare(b.programme.id)
+  })
 }
 
-// ── Étape 3 : Détection du parcours métier via APE ───────────────
-export function detectParcours(
-  nafCode?: string,
-  nafLabel?: string
-): ParcoursMatch {
+// ── Étape 3 : Détection parcours via APE (3 niveaux) ─────────────
+export function detectParcours(nafCode?: string): ParcoursMatch {
   if (!nafCode) {
-    return { parcours: null as any, confiance: 'AUCUN_PARCOURS_METIER', raison: 'Pas de code APE disponible' }
+    return { parcours: null, confiance: 'AUCUN_PARCOURS_METIER', raison: 'Pas de code APE disponible' }
   }
 
-  // Normaliser le code APE (enlever espaces, mettre en majuscules)
   const ape = nafCode.replace(/\s/g, '').toUpperCase()
-
-  // Chercher une correspondance exacte
   const match = APE_MAPPING.find(m => m.actif && m.code_ape.replace(/\s/g, '').toUpperCase() === ape)
 
   if (!match) {
-    return { parcours: null as any, confiance: 'AUCUN_PARCOURS_METIER', raison: `Code APE ${nafCode} non mappé` }
+    return { parcours: null, confiance: 'AUCUN_PARCOURS_METIER', raison: `Code APE ${nafCode} non mappé` }
   }
 
   const parcours = PARCOURS.find(p => p.id === match.id_parcours && p.actif)
   if (!parcours) {
-    return { parcours: null as any, confiance: 'AUCUN_PARCOURS_METIER', raison: `Parcours ${match.id_parcours} inactif` }
+    return { parcours: null, confiance: 'AUCUN_PARCOURS_METIER', raison: `Parcours ${match.id_parcours} inactif` }
   }
 
   const confiance: ParcoursMatch['confiance'] =
@@ -245,29 +189,87 @@ export function detectParcours(
     parcours,
     confiance,
     raison: match.confiance === 'Forte'
-      ? `APE ${nafCode} correspond au métier "${parcours.metier}"`
-      : `APE ${nafCode} (${match.regle_validation})`,
+      ? `APE ${nafCode} → métier "${parcours.metier}" (confiance forte)`
+      : `APE ${nafCode} : ${match.regle_validation} (confiance moyenne — à confirmer)`,
   }
 }
 
-// ── Fonction principale : tout en un ────────────────────────────
+// ── Vérification prérequis (V1 conservative) ─────────────────────
+export function checkPrerequisProgramme(
+  prog: Programme,
+  answers: Record<string, string>
+): PrerequisCheck {
+  // PROG-026 WordPress : nécessite des bases en navigation web
+  // On ne peut pas le déduire formellement du questionnaire actuel → PREREQUIS_A_VERIFIER
+  if (prog.id === 'PROG-026') {
+    return {
+      status: 'PREREQUIS_A_VERIFIER',
+      detail: 'WordPress Pro (21h) nécessite une maîtrise courante d\'Internet et d\'un ordinateur. À confirmer avant inscription.',
+    }
+  }
+
+  // PROG-009 Assistants IA : pratique préalable IA recommandée
+  if (prog.id === 'PROG-009') {
+    const iaUsage = answers['I3'] ?? ''
+    if (iaUsage === 'never') {
+      return {
+        status: 'PREREQUIS_A_VERIFIER',
+        detail: 'La création d\'assistants IA métier est plus accessible après une formation de base à ChatGPT (PROG-006).',
+      }
+    }
+  }
+
+  // PROG-005 Campagnes publicitaires : nécessite idéalement une présence et une offre existantes
+  if (prog.id === 'PROG-005') {
+    const site = answers['A5'] ?? ''
+    if (site === 'no') {
+      return {
+        status: 'PREREQUIS_A_VERIFIER',
+        detail: 'Les campagnes publicitaires sont plus efficaces avec un site web ou une landing page existante.',
+      }
+    }
+  }
+
+  // PROG-021 GA4 : nécessite un accès GA4 — impossible à vérifier via le questionnaire
+  if (prog.id === 'PROG-021') {
+    return {
+      status: 'PREREQUIS_A_VERIFIER',
+      detail: 'Google Analytics 4 nécessite un accès à une propriété GA4 existante ou à créer. À confirmer.',
+    }
+  }
+
+  return { status: 'PREREQUIS_OK' }
+}
+
+// ── Fonction principale ──────────────────────────────────────────
 export function computeRecommendations(
   answers: Record<string, string>,
   nafCode?: string,
-  nafLabel?: string,
   topN = SCORING_CONFIG.TOP_N_PROGRAMMES
 ): {
   moduleScores: ModuleScore[]
   programmeScores: ProgrammeScore[]
   top: ProgrammeScore[]
+  topWithPrerequisite: (ProgrammeScore & { prerequis: PrerequisCheck })[]
   parcoursMatch: ParcoursMatch
   logs: string[]
 } {
   const moduleScores = computeModuleScores(answers)
-  const parcoursMatch = detectParcours(nafCode, nafLabel)
+  const parcoursMatch = detectParcours(nafCode)
   const programmeScores = computeProgrammeScores(moduleScores, parcoursMatch)
-  const top = programmeScores.slice(0, topN)
-  const logs = top.map(p => p.log)
 
-  return { moduleScores, programmeScores, top, parcoursMatch, logs }
+  // Filtrer PREREQUIS_NON_REMPLI du Top N (V1 : aucun cas actuellement)
+  const eligible = programmeScores.filter(ps => {
+    const prereq = checkPrerequisProgramme(ps.programme, answers)
+    return prereq.status !== 'PREREQUIS_NON_REMPLI'
+  })
+
+  const top = eligible.slice(0, topN)
+  const topWithPrerequisite = top.map(ps => ({
+    ...ps,
+    prerequis: checkPrerequisProgramme(ps.programme, answers),
+  }))
+  const logs = top.map(ps => ps.log)
+
+  return { moduleScores, programmeScores, top, topWithPrerequisite, parcoursMatch, logs }
 }
