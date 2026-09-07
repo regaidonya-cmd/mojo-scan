@@ -147,8 +147,8 @@ export function StepReport({ state }: Props) {
   const parcoursMatch = parcoursData?.confiance
 
   // Calendly paramétré avec nom + email
-  const calendlyBase = (process.env.NEXT_PUBLIC_CALENDLY_URL ?? 'https://calendly.com/mojoacademie')
-  const calendlyUrl = `${calendlyBase}?name=${encodeURIComponent((state.contact?.firstname ?? '') + ' ' + (state.contact?.lastname ?? ''))}&email=${encodeURIComponent(state.contact?.email ?? '')}&utm_source=mojo_lead_engine`
+  const calendlyBase = process.env.NEXT_PUBLIC_CALENDLY_URL ?? ''
+  const calendlyUrl = calendlyBase ? `${calendlyBase}?name=${encodeURIComponent((state.contact?.firstname ?? '') + ' ' + (state.contact?.lastname ?? ''))}&email=${encodeURIComponent(state.contact?.email ?? '')}&utm_source=mojo_lead_engine` : ''
 
   const handleSendEmail = async () => {
     if (emailSent || emailLoading || !state.contact?.email) return
@@ -259,17 +259,17 @@ export function StepReport({ state }: Props) {
       )}
 
       {/* F. PARCOURS MÉTIER */}
-      {parcoursMatch === 'MATCH_FORT' && parcoursData?.parcours && (
+      {parcoursMatch === 'MATCH_FORT' && parcoursData && (
         <div style={{ background: `linear-gradient(135deg, ${NIGHT}, #2D2A8F)`, borderRadius: 20, padding: '20px', marginBottom: 16, color: '#fff' }}>
           <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(224,64,171,0.9)', letterSpacing: '0.1em', textTransform: 'uppercase' as const, margin: '0 0 8px' }}>Parcours métier recommandé</p>
-          <h3 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: '1.2rem', fontWeight: 800, margin: '0 0 6px' }}>{parcoursData.parcours.nom ?? parcoursData.nom}</h3>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', margin: '0 0 14px', fontStyle: 'italic' }}>{parcoursData.parcours.promesse ?? parcoursData.promesse}</p>
+          <h3 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: '1.2rem', fontWeight: 800, margin: '0 0 6px' }}>{parcoursData.nom}</h3>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', margin: '0 0 14px', fontStyle: 'italic' }}>{parcoursData.promesse}</p>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' as const, marginBottom: 14 }}>
             <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: 'rgba(255,255,255,0.1)', color: '#fff' }}>35h de formation</span>
             <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: 'rgba(224,64,171,0.3)', color: '#fff' }}>3 200 € HT</span>
           </div>
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', lineHeight: 1.5, margin: 0 }}>
-            Ce parcours a été conçu spécifiquement pour les {(parcoursData.parcours.metier ?? parcoursData.metier ?? '').toLowerCase()}. Il couvre l'ensemble des compétences digitales prioritaires pour votre secteur avec un livrable concret à l'issue.
+            Ce parcours a été conçu spécifiquement pour les {(parcoursData.metier ?? '').toLowerCase()}. Il couvre l'ensemble des compétences digitales prioritaires pour votre secteur avec un livrable concret à l'issue.
           </p>
         </div>
       )}
@@ -301,7 +301,7 @@ export function StepReport({ state }: Props) {
             ))}
           </div>
         )}
-        <a href={calendlyUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', fontSize: 13, fontWeight: 700, color: '#16A34A', background: 'none', border: '1.5px solid #16A34A', borderRadius: 10, padding: '8px 16px', cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none' }}>
+        <a href={calendlyUrl || '#'} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', fontSize: 13, fontWeight: 700, color: '#16A34A', background: 'none', border: '1.5px solid #16A34A', borderRadius: 10, padding: '8px 16px', cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none' }}>
           Vérifier mes possibilités de financement →
         </a>
       </div>
@@ -333,7 +333,7 @@ export function StepReport({ state }: Props) {
         <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: '0 0 20px', lineHeight: 1.5 }}>
           Un conseiller MOJO Académie peut vous aider à prioriser, financer et planifier votre parcours.
         </p>
-        <a href={calendlyUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'block', width: '100%', padding: '14px', borderRadius: 12, background: GRAD, color: '#fff', fontSize: 14, fontWeight: 700, textDecoration: 'none', textAlign: 'center' as const, marginBottom: 10, boxShadow: '0 6px 20px rgba(224,64,171,0.4)', boxSizing: 'border-box' as const }}>
+        <a href={calendlyUrl || '#'} target="_blank" rel="noopener noreferrer" style={{ display: 'block', width: '100%', padding: '14px', borderRadius: 12, background: GRAD, color: '#fff', fontSize: 14, fontWeight: 700, textDecoration: 'none', textAlign: 'center' as const, marginBottom: 10, boxShadow: '0 6px 20px rgba(224,64,171,0.4)', boxSizing: 'border-box' as const }}>
           📅 Échanger avec MOJO Académie
         </a>
         <button
