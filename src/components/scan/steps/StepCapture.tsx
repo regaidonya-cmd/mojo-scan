@@ -67,7 +67,7 @@ export function StepCapture({ state, next, update }: Props) {
         consentDiag, consentMarketing,
         id: data.diagnosticId, reportToken: data.reportToken,
         businessScore: data.businessScore, leadScore: data.leadScore,
-        priorities: data.priorities, recommendations: data.recommendations, funding: data.funding,
+        priorities: data.priorities, recommendations: data.recommendations, funding: data.funding, parcoursMatch: data.parcoursMatch,
       })
     } catch (e: any) {
       setError(e.message ?? 'Une erreur est survenue.')

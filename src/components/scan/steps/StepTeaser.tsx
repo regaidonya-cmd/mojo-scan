@@ -1,10 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import type { DiagnosticState } from '@/types'
-import { StepWrapper } from '../StepWrapper'
-import { computeBusinessScore, computeLeadScore, computePriorities, detectBranch } from '@/lib/scoring/engine'
-import { computeFunding } from '@/lib/funding/engine'
 
 interface Props {
   state: DiagnosticState
@@ -13,97 +9,199 @@ interface Props {
   update: (patch: Partial<DiagnosticState>) => void
 }
 
-const SCORE_COLORS = (s: number) =>
-  s >= 70 ? 'text-emerald-600' :
-  s >= 40 ? 'text-amber-600'   : 'text-red-500'
+// Textes d'accroche selon le profil
+function buildAccroche(state: DiagnosticState): string {
+  const obj = state.answers['P3'] ?? ''
+  const objs = obj.split(',').map(v => v.trim())
 
-export function StepTeaser({ state, next, update }: Props) {
-  const [computed, setComputed] = useState(false)
-
-  useEffect(() => {
-    if (!computed) {
-      const branch      = state.branch ?? detectBranch(state.answers)
-      const bizScore    = computeBusinessScore(state.answers)
-      const leadScore   = computeLeadScore(state.answers, bizScore)
-      const priorities  = computePriorities(bizScore, branch, state.answers)
-      const funding     = computeFunding(state.company, state.answers)
-      update({ businessScore: bizScore, leadScore, priorities, funding: funding })
-      setComputed(true)
-    }
-  }, [])
-
-  const { businessScore, priorities, funding } = state
-
-  if (!businessScore || !priorities) {
-    return (
-      <div className="pt-16 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-neutral-200 border-t-[#E85D26] rounded-full animate-spin" />
-      </div>
-    )
+  if (objs.includes('fidelisation') || objs.includes('clients')) {
+    return "Votre activité présente des opportunités concrètes de croissance. Nous avons identifié 3 axes prioritaires pour développer votre chiffre d'affaires."
   }
+  if (objs.includes('ia') || objs.includes('automatisation') || objs.includes('temps')) {
+    return "Votre diagnostic révèle un potentiel important de gain de temps et de productivité. Voici les 3 leviers les plus impactants pour votre activité."
+  }
+  if (objs.includes('google') || objs.includes('reseaux') || objs.includes('site')) {
+    return "Votre présence digitale peut être significativement renforcée. Nous avons identifié 3 axes prioritaires pour améliorer votre visibilité et attirer plus de clients."
+  }
+  return "Votre diagnostic est prêt. Nous avons identifié 3 axes prioritaires pour développer votre activité digitale."
+}
 
-  const topFunding = funding?.[0]
+// Labels lisibles pour les priorités
+function priorityLabel(rank: number, priorities: any[]): string {
+  if (!priorities || !priorities[rank - 1]) return ''
+  return priorities[rank - 1].label
+}
+
+// Axes courts pour le teaser
+function getTeaserAxes(state: DiagnosticState): string[] {
+  const priorities = state.priorities ?? []
+  return priorities.slice(0, 3).map(p => p.label)
+}
+
+const GRAD = 'linear-gradient(135deg, #9B2FCC, #E040AB)'
+const NIGHT = '#1A186E'
+const MUTED = '#4B5563'
+const OFF = '#F8F7FF'
+
+export function StepTeaser({ state, next }: Props) {
+  const accroche = buildAccroche(state)
+  const priority1 = state.priorities?.[0]
+  const axes = getTeaserAxes(state)
+  const hasCompany = !!state.company?.name
 
   return (
-    <StepWrapper title="Voici votre aperçu">
-      {/* Score global */}
-      <div className="mt-6 bg-white rounded-2xl border border-neutral-200 p-6 text-center">
-        <p className="text-sm text-neutral-500 mb-1">Score digital global</p>
-        <div className={`text-6xl font-semibold tabular-nums ${SCORE_COLORS(businessScore.global)}`}>
-          {businessScore.global}
-          <span className="text-2xl text-neutral-400">/100</span>
-        </div>
-        <p className="text-sm text-neutral-400 mt-2">
-          {businessScore.global < 40 ? 'Fort potentiel d\'amélioration détecté' :
-           businessScore.global < 70 ? 'Des axes d\'amélioration identifiés' :
-           'Bonne base — quelques optimisations à prévoir'}
+    <div style={{ paddingTop: 32, paddingBottom: 24 }}>
+
+      {/* En-tête */}
+      <div style={{ marginBottom: 24 }}>
+        <span style={{
+          display: 'inline-block',
+          fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const,
+          padding: '4px 12px', borderRadius: 999,
+          background: 'rgba(123,63,204,0.1)', color: '#7B3FCC',
+          marginBottom: 12,
+        }}>
+          Votre diagnostic MOJO
+        </span>
+        <h1 style={{
+          fontFamily: "'Bricolage Grotesque', sans-serif",
+          fontSize: 'clamp(1.6rem, 4vw, 2rem)', fontWeight: 800,
+          color: NIGHT, letterSpacing: '-0.04em', lineHeight: 1.1,
+          margin: 0,
+        }}>
+          {hasCompany ? `${state.company!.name}` : 'Votre activité'} —{' '}
+          <span style={{ background: GRAD, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            3 axes identifiés
+          </span>
+        </h1>
+        <p style={{ marginTop: 10, color: MUTED, fontSize: 15, lineHeight: 1.6 }}>
+          {accroche}
         </p>
       </div>
 
-      {/* 3 priorités (floutées partiellement) */}
-      <div className="mt-4 space-y-2">
-        <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Vos 3 priorités identifiées</p>
-        {priorities.map((p, i) => (
-          <div
-            key={i}
-            className={`bg-white rounded-xl border border-neutral-200 px-4 py-3 flex items-start gap-3
-              ${i >= 2 ? 'opacity-50 blur-[2px] select-none' : ''}`}
-          >
-            <span className="text-xl">{p.icon}</span>
+      {/* Priorité n°1 */}
+      {priority1 && (
+        <div style={{
+          background: '#fff',
+          border: '1.5px solid #E5E7EB',
+          borderRadius: 16, padding: '18px 20px',
+          marginBottom: 12,
+          position: 'relative' as const, overflow: 'hidden',
+        }}>
+          <div style={{
+            position: 'absolute' as const, top: 0, left: 0, right: 0, height: 3,
+            background: GRAD,
+          }} />
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <span style={{ fontSize: 20, flexShrink: 0, marginTop: 2 }}>{priority1.icon}</span>
             <div>
-              <p className="text-sm font-medium text-neutral-800">{p.label}</p>
-              {i === 0 && (
-                <p className="text-xs text-neutral-500 mt-0.5 line-clamp-2">{p.detail}</p>
-              )}
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#7B3FCC', letterSpacing: '0.08em', textTransform: 'uppercase' as const, margin: '0 0 4px' }}>
+                Priorité n°1
+              </p>
+              <p style={{ fontSize: 15, fontWeight: 700, color: NIGHT, margin: '0 0 6px' }}>
+                {priority1.label}
+              </p>
+              <p style={{ fontSize: 13, color: MUTED, lineHeight: 1.5, margin: 0 }}>
+                {priority1.detail}
+              </p>
             </div>
           </div>
-        ))}
-      </div>
-
-      {/* Financement */}
-      {topFunding && (
-        <div className="mt-4 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-          <p className="text-xs font-medium text-emerald-700">💶 Financement potentiel détecté</p>
-          <p className="text-sm text-emerald-800 font-medium mt-0.5">{topFunding.funder}</p>
-          <p className="text-xs text-emerald-600">{topFunding.coverage_label}</p>
         </div>
       )}
 
-      {/* CTA */}
-      <div className="mt-6 bg-neutral-900 rounded-2xl p-5 text-center">
-        <p className="text-white font-medium text-base">
-          Recevez votre rapport complet
+      {/* 3 axes — floutés pour créer de l'envie */}
+      <div style={{
+        background: '#fff', border: '1.5px solid #E5E7EB',
+        borderRadius: 16, padding: '18px 20px', marginBottom: 24,
+      }}>
+        <p style={{ fontSize: 12, fontWeight: 700, color: MUTED, letterSpacing: '0.08em', textTransform: 'uppercase' as const, margin: '0 0 14px' }}>
+          3 axes identifiés
         </p>
-        <p className="text-neutral-400 text-sm mt-1 mb-4">
-          Parcours recommandé · Détail des priorités · Simulation de financement
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {axes.map((axe, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{
+                width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+                background: i === 0 ? GRAD : 'rgba(123,63,204,0.08)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: i === 0 ? '#fff' : '#7B3FCC',
+                fontSize: 12, fontWeight: 700,
+              }}>
+                {i + 1}
+              </div>
+              <span style={{
+                fontSize: 14, fontWeight: i === 0 ? 600 : 400,
+                color: i === 0 ? NIGHT : MUTED,
+                filter: i > 0 ? 'blur(4px)' : 'none',
+                userSelect: 'none' as const,
+              }}>
+                {i === 0 ? axe : axes[i] || 'Axe prioritaire identifié'}
+              </span>
+            </div>
+          ))}
+        </div>
+        <p style={{
+          marginTop: 14, fontSize: 12, color: '#9CA3AF',
+          fontStyle: 'italic',
+        }}>
+          → Les axes 2 et 3 sont détaillés dans votre rapport complet.
         </p>
-        <button
-          onClick={() => next()}
-          className="w-full bg-[#E85D26] text-white py-3.5 rounded-xl font-medium hover:bg-[#d04f1e] transition-colors"
-        >
-          Recevoir mon diagnostic →
-        </button>
       </div>
-    </StepWrapper>
+
+      {/* Indicateur de valeur */}
+      <div style={{
+        background: 'linear-gradient(135deg, rgba(123,63,204,0.06), rgba(224,64,171,0.06))',
+        border: '1px solid rgba(123,63,204,0.15)',
+        borderRadius: 14, padding: '14px 18px', marginBottom: 24,
+        display: 'flex', alignItems: 'center', gap: 12,
+      }}>
+        <span style={{ fontSize: 24 }}>📋</span>
+        <div>
+          <p style={{ fontSize: 13, fontWeight: 600, color: NIGHT, margin: 0 }}>
+            Votre rapport complet inclut
+          </p>
+          <p style={{ fontSize: 12, color: MUTED, margin: '2px 0 0', lineHeight: 1.5 }}>
+            3 formations recommandées · Simulation de financement · Plan d'action 90 jours
+            {state.recommendations?.[0] && ` · Parcours ${state.recommendations[0].item?.code?.startsWith('PARC') ? 'métier' : 'personnalisé'}`}
+          </p>
+        </div>
+      </div>
+
+      {/* CTA principal */}
+      <button
+        onClick={() => next()}
+        style={{
+          width: '100%', padding: '15px', borderRadius: 14,
+          border: 'none', background: GRAD,
+          color: '#fff', fontSize: 15, fontWeight: 700,
+          cursor: 'pointer', fontFamily: 'inherit',
+          boxShadow: '0 8px 24px rgba(224,64,171,0.35)',
+          marginBottom: 10,
+        }}
+      >
+        Recevoir mon rapport complet →
+      </button>
+
+      {/* CTA secondaire */}
+      <a
+        href="https://calendly.com/mojoacademie"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: 'block', width: '100%', padding: '13px',
+          borderRadius: 14, border: '1.5px solid #E5E7EB',
+          background: '#fff', color: MUTED,
+          fontSize: 14, fontWeight: 600,
+          textAlign: 'center' as const, textDecoration: 'none',
+          fontFamily: 'inherit', cursor: 'pointer',
+        }}
+      >
+        📅 Prendre rendez-vous avec un conseiller
+      </a>
+
+      <p style={{ fontSize: 11, textAlign: 'center' as const, color: '#9CA3AF', marginTop: 12 }}>
+        Diagnostic gratuit · Sans engagement · Résultats immédiats
+      </p>
+    </div>
   )
 }

@@ -135,6 +135,7 @@ export interface DiagnosticState {
   consentMarketing: boolean
   // Report
   reportToken?: string
+  parcoursMatch?: any  // ParcoursMatch sérialisé depuis l'API
 }
 
 export type DiagnosticStep =
