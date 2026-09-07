@@ -485,14 +485,7 @@ export function StepReport({ state }: Props) {
             ))}
           </div>
         )}
-        <button style={{
-          fontSize: 13, fontWeight: 700, color: '#16A34A',
-          background: 'none', border: '1.5px solid #16A34A',
-          borderRadius: 10, padding: '8px 16px', cursor: 'pointer',
-          fontFamily: 'inherit',
-        }}>
-          Vérifier mes possibilités de financement →
-        </button>
+        <a href="https://calendly.com/mojoacademie" target="_blank" rel="noopener noreferrer" style={{ display:"inline-block", fontSize: 13, fontWeight: 700, color: "#16A34A", background: "none", border: "1.5px solid #16A34A", borderRadius: 10, padding: "8px 16px", cursor: "pointer", fontFamily: "inherit", textDecoration: "none" }}>Vérifier mes possibilités de financement →</a>
       </div>
 
       {/* ── H. PLAN D'ACTION ── */}

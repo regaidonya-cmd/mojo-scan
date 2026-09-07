@@ -34,3 +34,16 @@ grant all on mapping_questions_modules to anon, authenticated, service_role;
 grant all on mapping_parcours_programmes to anon, authenticated, service_role;
 grant usage, select on sequence mapping_questions_modules_id_seq to anon, authenticated, service_role;
 grant usage, select on sequence mapping_parcours_programmes_id_seq to anon, authenticated, service_role;
+
+-- Colonnes versioning sur diagnostics
+ALTER TABLE diagnostics ADD COLUMN IF NOT EXISTS catalog_version text;
+ALTER TABLE diagnostics ADD COLUMN IF NOT EXISTS scoring_version text;
+ALTER TABLE diagnostics ADD COLUMN IF NOT EXISTS diagnostic_version text;
+ALTER TABLE diagnostics ADD COLUMN IF NOT EXISTS internal_snapshot jsonb;
+
+-- Colonnes consent améliorées
+ALTER TABLE consents ADD COLUMN IF NOT EXISTS granted_at timestamptz;
+ALTER TABLE consents ADD COLUMN IF NOT EXISTS source text;
+
+-- Colonne lastname sur contacts
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS lastname text;

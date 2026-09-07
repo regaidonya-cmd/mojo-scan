@@ -15,6 +15,7 @@ const GRAD = 'linear-gradient(135deg, #9B2FCC, #E040AB)'
 
 export function StepCapture({ state, next, update }: Props) {
   const [firstname, setFirstname]           = useState(state.contact?.firstname ?? '')
+  const [lastname, setLastname]             = useState(state.contact?.lastname ?? '')
   const [email, setEmail]                   = useState(state.contact?.email ?? '')
   const [phone, setPhone]                   = useState(state.contact?.phone ?? '')
   const [consentDiag, setConsentDiag]       = useState(state.consentDiag)
@@ -23,9 +24,9 @@ export function StepCapture({ state, next, update }: Props) {
   const [error, setError]                   = useState('')
   const [touched, setTouched]               = useState({ firstname: false, email: false })
 
-  const emailValid    = email.includes('@') && email.includes('.')
+  const emailValid     = email.includes('@') && email.includes('.')
   const firstnameValid = firstname.trim().length > 0
-  const isValid       = firstnameValid && emailValid && consentDiag
+  const isValid        = firstnameValid && emailValid && consentDiag
 
   const inputStyle = (hasError: boolean) => ({
     width: '100%', padding: '12px 14px',
@@ -33,7 +34,6 @@ export function StepCapture({ state, next, update }: Props) {
     background: hasError ? '#FFF5F5' : '#fff',
     fontSize: 15, fontFamily: 'inherit', color: '#111827',
     outline: 'none', boxSizing: 'border-box' as const,
-    transition: 'border-color 0.2s',
   })
 
   const submit = async () => {
@@ -49,9 +49,16 @@ export function StepCapture({ state, next, update }: Props) {
         answers: Object.entries(state.answers).map(([question_code, value]) => ({
           question_code, value, score: 0,
         })),
-        contact: { firstname: firstname.trim(), email: email.trim(), phone: phone.trim() || undefined },
+        contact: {
+          firstname: firstname.trim(),
+          lastname:  lastname.trim() || undefined,
+          email:     email.trim(),
+          phone:     phone.trim() || undefined,
+        },
         consentDiag,
         consentMarketing,
+        consentDate: new Date().toISOString(),
+        consentSource: 'mojo-scan-web',
       }
 
       const res  = await fetch('/api/scan/submit', {
@@ -63,11 +70,12 @@ export function StepCapture({ state, next, update }: Props) {
       if (!res.ok) throw new Error(data.error ?? 'Erreur serveur')
 
       next({
-        contact: { firstname, email, phone },
+        contact: { firstname, lastname, email, phone },
         consentDiag, consentMarketing,
         id: data.diagnosticId, reportToken: data.reportToken,
         businessScore: data.businessScore, leadScore: data.leadScore,
-        priorities: data.priorities, recommendations: data.recommendations, funding: data.funding, parcoursMatch: data.parcoursMatch,
+        priorities: data.priorities, recommendations: data.recommendations,
+        funding: data.funding, parcoursMatch: data.parcoursMatch,
       })
     } catch (e: any) {
       setError(e.message ?? 'Une erreur est survenue.')
@@ -76,82 +84,90 @@ export function StepCapture({ state, next, update }: Props) {
     }
   }
 
-  return (
-    <StepWrapper title="Où envoyons-nous votre diagnostic ?" subtitle="Votre rapport complet avec recommandations et simulation de financement.">
-      <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
+  // Entreprise déjà connue — ne pas la redemander
+  const hasCompany = !!state.company?.name
 
-        {/* Prénom */}
-        <div>
-          <label style={{ fontSize: 12, fontWeight: 600, color: '#4B5563', display: 'block', marginBottom: 4 }}>
-            Prénom *
-          </label>
-          <input type="text" value={firstname}
-            onChange={e => setFirstname(e.target.value)}
-            onBlur={() => setTouched(t => ({ ...t, firstname: true }))}
-            placeholder="Votre prénom"
-            style={inputStyle(touched.firstname && !firstnameValid)}
-            autoFocus
-          />
-          {touched.firstname && !firstnameValid && (
-            <p style={{ fontSize: 11, color: '#EF4444', marginTop: 4 }}>⚠️ Veuillez entrer votre prénom</p>
-          )}
+  return (
+    <StepWrapper
+      title="Où envoyons-nous votre diagnostic ?"
+      subtitle="Votre rapport complet avec recommandations et simulation de financement."
+    >
+      <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+        {/* Récapitulatif entreprise si déjà renseignée */}
+        {hasCompany && (
+          <div style={{ background: 'rgba(123,63,204,0.06)', border: '1px solid rgba(123,63,204,0.15)', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#4B5563' }}>
+            🏢 <strong>{state.company!.name}</strong>
+            {state.company!.city ? ` · ${state.company!.city}` : ''}
+          </div>
+        )}
+
+        {/* Prénom + Nom */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#4B5563', display: 'block', marginBottom: 4 }}>Prénom *</label>
+            <input type="text" value={firstname} onChange={e => setFirstname(e.target.value)}
+              onBlur={() => setTouched(t => ({ ...t, firstname: true }))}
+              placeholder="Prénom" style={inputStyle(touched.firstname && !firstnameValid)} autoFocus />
+            {touched.firstname && !firstnameValid && (
+              <p style={{ fontSize: 11, color: '#EF4444', marginTop: 3 }}>⚠️ Requis</p>
+            )}
+          </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#4B5563', display: 'block', marginBottom: 4 }}>Nom</label>
+            <input type="text" value={lastname} onChange={e => setLastname(e.target.value)}
+              placeholder="Nom" style={inputStyle(false)} />
+          </div>
         </div>
 
         {/* Email */}
         <div>
-          <label style={{ fontSize: 12, fontWeight: 600, color: '#4B5563', display: 'block', marginBottom: 4 }}>
-            Email professionnel *
-          </label>
-          <input type="email" value={email}
-            onChange={e => setEmail(e.target.value)}
+          <label style={{ fontSize: 12, fontWeight: 600, color: '#4B5563', display: 'block', marginBottom: 4 }}>Email professionnel *</label>
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)}
             onBlur={() => setTouched(t => ({ ...t, email: true }))}
-            placeholder="votre@email.fr"
-            style={inputStyle(touched.email && !emailValid)}
-          />
+            placeholder="votre@email.fr" style={inputStyle(touched.email && !emailValid)} />
           {touched.email && !emailValid && (
-            <p style={{ fontSize: 11, color: '#EF4444', marginTop: 4 }}>⚠️ Email invalide — ex: votre@email.fr</p>
+            <p style={{ fontSize: 11, color: '#EF4444', marginTop: 3 }}>⚠️ Email invalide — ex: votre@email.fr</p>
           )}
         </div>
 
         {/* Téléphone */}
         <div>
           <label style={{ fontSize: 12, fontWeight: 600, color: '#4B5563', display: 'block', marginBottom: 4 }}>
-            Téléphone (facultatif)
+            Téléphone <span style={{ fontWeight: 400, color: '#9CA3AF' }}>(recommandé)</span>
           </label>
-          <input type="tel" value={phone}
-            onChange={e => setPhone(e.target.value)}
-            placeholder="06 XX XX XX XX"
-            style={inputStyle(false)}
-          />
+          <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+            placeholder="06 XX XX XX XX" style={inputStyle(false)} />
         </div>
 
-        {/* Consentements */}
-        <div style={{ paddingTop: 4, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* Consentements — séparés clairement */}
+        <div style={{ paddingTop: 4, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* A — Consentement diagnostic (requis) */}
           <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
             <input type="checkbox" checked={consentDiag} onChange={e => setConsentDiag(e.target.checked)}
               style={{ marginTop: 2, accentColor: '#E040AB', width: 16, height: 16, flexShrink: 0 }} />
             <span style={{ fontSize: 12, color: '#4B5563', lineHeight: 1.5 }}>
-              J'accepte que mes données soient utilisées pour recevoir ce diagnostic et être recontacté(e) par MOJO ACADÉMIE. *{' '}
-              <a href="/politique-confidentialite" target="_blank" style={{ color: '#7B3FCC', textDecoration: 'underline' }}>Politique de confidentialité</a>
+              J'accepte que mes données soient utilisées pour recevoir ce diagnostic et être recontacté(e) par MOJO ACADÉMIE au sujet de ma demande. *{' '}
+              <a href="/politique-confidentialite" target="_blank" style={{ color: '#7B3FCC' }}>Politique de confidentialité</a>
             </span>
           </label>
-          {!consentDiag && touched.firstname && (
-            <p style={{ fontSize: 11, color: '#EF4444', marginLeft: 26 }}>⚠️ Consentement requis pour recevoir le rapport</p>
-          )}
 
-          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
-            <input type="checkbox" checked={consentMarketing} onChange={e => setConsentMarketing(e.target.checked)}
-              style={{ marginTop: 2, accentColor: '#E040AB', width: 16, height: 16, flexShrink: 0 }} />
-            <span style={{ fontSize: 12, color: '#4B5563', lineHeight: 1.5 }}>
-              J'accepte de recevoir des conseils et actualités de MOJO ACADÉMIE (optionnel, désabonnement en 1 clic).
-            </span>
-          </label>
+          {/* B — Consentement marketing (optionnel, séparé) */}
+          <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 10, padding: '10px 12px' }}>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+              <input type="checkbox" checked={consentMarketing} onChange={e => setConsentMarketing(e.target.checked)}
+                style={{ marginTop: 2, accentColor: '#E040AB', width: 16, height: 16, flexShrink: 0 }} />
+              <span style={{ fontSize: 12, color: '#4B5563', lineHeight: 1.5 }}>
+                <strong>Optionnel</strong> — J'accepte de recevoir des conseils et actualités de MOJO ACADÉMIE par email (désabonnement en 1 clic à tout moment).
+              </span>
+            </label>
+          </div>
         </div>
 
-        {/* Résumé erreurs si bouton cliqué sans remplir */}
+        {/* Résumé erreurs */}
         {!isValid && touched.firstname && (
           <div style={{ background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#92400E' }}>
-            ✏️ Vérifiez les champs en rouge avant de continuer.
+            ✏️ Vérifiez les champs requis avant de continuer.
           </div>
         )}
 
@@ -186,8 +202,10 @@ export function StepCapture({ state, next, update }: Props) {
           ) : 'Recevoir mon rapport complet →'}
         </button>
 
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+
         <p style={{ fontSize: 11, textAlign: 'center', color: '#9CA3AF' }}>
-          🔒 Données protégées — Aucun engagement — Désabonnement en 1 clic
+          🔒 Données protégées RGPD — Sans engagement
         </p>
       </div>
     </StepWrapper>

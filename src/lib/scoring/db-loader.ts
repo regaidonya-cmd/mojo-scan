@@ -1,22 +1,18 @@
-// ══════════════════════════════════════════════════════════════
-// MOJO LEAD ENGINE — Chargeur DB
-// Charge les mappings depuis Supabase (source de vérité)
-// Fallback automatique sur les fichiers .ts si DB indisponible
-// ══════════════════════════════════════════════════════════════
-
 import { createClient } from '@supabase/supabase-js'
 import { MAPPING_QUESTIONS_MODULES as MQM_FALLBACK } from './mapping_questions_modules'
 import { MAPPING_PARCOURS_PROGRAMMES as MPP_FALLBACK } from './mapping_parcours_programmes'
+import { ENGINE_VERSION } from './version'
 import type { QuestionModuleMapping } from './mapping_questions_modules'
 import type { ParcoursProgramme } from './mapping_parcours_programmes'
 
-// Cache en mémoire (TTL = durée de vie du process Next.js)
 let mqmCache: QuestionModuleMapping[] | null = null
 let mppCache: ParcoursProgramme[] | null = null
+let dataSource: 'SUPABASE' | 'FALLBACK' = 'FALLBACK'
+
+export function getDataSource() { return dataSource }
 
 export async function getMappingQuestionsModules(): Promise<QuestionModuleMapping[]> {
   if (mqmCache) return mqmCache
-
   try {
     const supabase = createClient(
       process.env.SUPABASE_URL!,
@@ -24,28 +20,27 @@ export async function getMappingQuestionsModules(): Promise<QuestionModuleMappin
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
     const { data, error } = await supabase
-      .from('mapping_questions_modules')
-      .select('*')
-      .eq('actif', true)
+      .from('mapping_questions_modules').select('*').eq('actif', true)
 
     if (error || !data || data.length === 0) {
-      console.warn('[MQM] DB indisponible ou vide, fallback sur fichier TS')
+      console.warn(`[DATA_SOURCE=FALLBACK] MQM depuis fichier TS (engine v${ENGINE_VERSION.scoring})`)
+      dataSource = 'FALLBACK'
       mqmCache = MQM_FALLBACK.filter(m => m.actif)
     } else {
-      console.log(`[MQM] Chargé depuis Supabase: ${data.length} associations`)
+      console.log(`[DATA_SOURCE=SUPABASE] MQM chargé: ${data.length} associations`)
+      dataSource = 'SUPABASE'
       mqmCache = data as QuestionModuleMapping[]
     }
   } catch (e) {
-    console.warn('[MQM] Erreur DB, fallback sur fichier TS:', e)
+    console.warn(`[DATA_SOURCE=FALLBACK] Erreur DB MQM:`, e)
+    dataSource = 'FALLBACK'
     mqmCache = MQM_FALLBACK.filter(m => m.actif)
   }
-
   return mqmCache
 }
 
 export async function getMappingParcoursProgammes(): Promise<ParcoursProgramme[]> {
   if (mppCache) return mppCache
-
   try {
     const supabase = createClient(
       process.env.SUPABASE_URL!,
@@ -53,27 +48,24 @@ export async function getMappingParcoursProgammes(): Promise<ParcoursProgramme[]
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
     const { data, error } = await supabase
-      .from('mapping_parcours_programmes')
-      .select('*')
-      .eq('actif', true)
+      .from('mapping_parcours_programmes').select('*').eq('actif', true)
 
     if (error || !data || data.length === 0) {
-      console.warn('[MPP] DB indisponible ou vide, fallback sur fichier TS')
+      console.warn(`[DATA_SOURCE=FALLBACK] MPP depuis fichier TS`)
       mppCache = MPP_FALLBACK.filter(m => m.actif)
     } else {
-      console.log(`[MPP] Chargé depuis Supabase: ${data.length} associations`)
+      console.log(`[DATA_SOURCE=SUPABASE] MPP chargé: ${data.length} associations`)
       mppCache = data as ParcoursProgramme[]
     }
   } catch (e) {
-    console.warn('[MPP] Erreur DB, fallback sur fichier TS:', e)
+    console.warn(`[DATA_SOURCE=FALLBACK] Erreur DB MPP:`, e)
     mppCache = MPP_FALLBACK.filter(m => m.actif)
   }
-
   return mppCache
 }
 
-// Invalider le cache (utile si on modifie la DB en cours de session)
 export function invalidateCache() {
   mqmCache = null
   mppCache = null
+  console.log('[CACHE] Invalidé')
 }
