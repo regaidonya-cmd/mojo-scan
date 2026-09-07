@@ -148,7 +148,7 @@ export async function sendDiagnosticEmail(data: DiagnosticEmailData): Promise<{
       body: JSON.stringify({
         sender: {
           name: 'MOJO Académie',
-          email: process.env.BREVO_SENDER_EMAIL ?? 'diagnostic@mojoacademie.com',
+          email: process.env.BREVO_SENDER_EMAIL ?? 'regai.donya@mojoacademie.com',
         },
         to: [{ email: data.to_email, name: data.to_name }],
         subject,
