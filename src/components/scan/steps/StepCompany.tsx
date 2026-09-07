@@ -114,7 +114,7 @@ export function StepCompany({ state, next, update }: Props) {
               </div>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
                 {[r.city, r.naf_label].filter(Boolean).join(' · ')}
-                {r.siren && <span style={{ color: '#9CA3AF', marginLeft: 8 }}>SIREN {r.siren}</span>}
+                {r.siret ? <span style={{ color: "#9CA3AF", marginLeft: 8 }}>SIRET {r.siret}</span> : r.siren ? <span style={{ color: "#9CA3AF", marginLeft: 8 }}>SIREN {r.siren}</span> : null}
               </div>
             </button>
           ))}
