@@ -11,10 +11,10 @@ interface Props {
 }
 
 const NIGHT = '#1A186E'
-const VIOLET = '#7B3FCC'
-const FUCHSIA = '#E040AB'
+const VIOLET = '#6B35B8'
+const FUCHSIA = '#C8399A'
 const MUTED = '#4B5563'
-const GRAD = 'linear-gradient(135deg, #9B2FCC, #E040AB)'
+const GRAD = 'linear-gradient(135deg, #6B35B8, #C8399A)'
 
 function buildSynthese(state: DiagnosticState): string {
   const obj = (state.answers['P3'] ?? '').split(',')[0]
@@ -193,7 +193,7 @@ export function StepReport({ state }: Props) {
 
       {/* A. EN-TÊTE */}
       <div style={{ background: NIGHT, borderRadius: 20, padding: '24px 20px', marginBottom: 20, position: 'relative' as const, overflow: 'hidden' }}>
-        <div style={{ position: 'absolute' as const, top: 0, right: 0, width: 160, height: 160, borderRadius: '50%', background: 'radial-gradient(circle, rgba(224,64,171,0.3) 0%, transparent 70%)', transform: 'translate(40%, -40%)' }} />
+        <div style={{ position: 'absolute' as const, top: 0, right: 0, width: 160, height: 160, borderRadius: '50%', background: 'radial-gradient(circle, rgba(200,57,154,0.3) 0%, transparent 70%)', transform: 'translate(40%, -40%)' }} />
         <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase' as const, margin: '0 0 8px' }}>Diagnostic digital & IA — MOJO Académie</p>
         <h1 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 'clamp(1.3rem, 3.5vw, 1.7rem)', fontWeight: 800, color: '#fff', margin: '0 0 6px', letterSpacing: '-0.03em' }}>
           {hasCompany ? state.company!.name : 'Votre rapport personnalisé'}
@@ -202,7 +202,7 @@ export function StepReport({ state }: Props) {
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: '0 0 12px' }}>{state.company.naf_label}{state.company.city ? ` · ${state.company.city}` : ''}</p>
         )}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' as const }}>
-          <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 999, background: 'rgba(224,64,171,0.2)', color: '#E040AB', fontWeight: 600 }}>{date}</span>
+          <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 999, background: 'rgba(200,57,154,0.2)', color: '#C8399A', fontWeight: 600 }}>{date}</span>
           {(state as any).leadScore?.level && (
             <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 999, background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
               {(state as any).leadScore.level === 'priority' ? '🔥 Projet prioritaire' : (state as any).leadScore.level === 'hot' ? '⚡ Projet chaud' : '✓ Projet qualifié'}
@@ -223,7 +223,7 @@ export function StepReport({ state }: Props) {
         <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 12 }}>
           {priorities.map((p, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-              <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: i === 0 ? GRAD : 'rgba(123,63,204,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: i === 0 ? 14 : 13, fontWeight: 700, color: i === 0 ? '#fff' : VIOLET }}>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: i === 0 ? GRAD : 'rgba(107,53,184,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: i === 0 ? 14 : 13, fontWeight: 700, color: i === 0 ? '#fff' : VIOLET }}>
                 {i === 0 ? (p.icon ?? '🎯') : i + 1}
               </div>
               <div>
@@ -237,17 +237,17 @@ export function StepReport({ state }: Props) {
 
       {/* D. FORMATION #1 */}
       {rec1 && (
-        <div style={{ background: '#fff', border: '2px solid #E040AB', borderRadius: 20, padding: '20px', marginBottom: 16, position: 'relative' as const, overflow: 'hidden' }}>
+        <div style={{ background: '#fff', border: '2px solid #C8399A', borderRadius: 20, padding: '20px', marginBottom: 16, position: 'relative' as const, overflow: 'hidden' }}>
           <div style={{ position: 'absolute' as const, top: 16, right: 16, background: GRAD, color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 999, letterSpacing: '0.05em' }}>RECOMMANDATION #1</div>
           <p style={{ fontSize: 11, fontWeight: 700, color: FUCHSIA, letterSpacing: '0.08em', textTransform: 'uppercase' as const, margin: '0 0 8px', paddingRight: 120 }}>{rec1.pilier ?? '—'}</p>
           <h2 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 'clamp(1.1rem, 3vw, 1.3rem)', fontWeight: 800, color: NIGHT, margin: '0 0 8px', letterSpacing: '-0.02em', lineHeight: 1.2 }}>{rec1.titre ?? rec1.item?.title}</h2>
           {rec1.objectif && <p style={{ fontSize: 13, color: MUTED, margin: '0 0 14px', fontStyle: 'italic' }}>{rec1.objectif}</p>}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' as const, marginBottom: 16 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 999, background: 'rgba(123,63,204,0.08)', color: VIOLET }}>⏱ {rec1.duree_h ?? rec1.item?.duration_h}h</span>
-            <span style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 999, background: 'rgba(224,64,171,0.08)', color: FUCHSIA }}>💶 {(rec1.tarif_ht ?? rec1.item?.price_ht ?? 0).toLocaleString('fr-FR')} € HT</span>
+            <span style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 999, background: 'rgba(107,53,184,0.08)', color: VIOLET }}>⏱ {rec1.duree_h ?? rec1.item?.duration_h}h</span>
+            <span style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 999, background: 'rgba(200,57,154,0.08)', color: FUCHSIA }}>💶 {(rec1.tarif_ht ?? rec1.item?.price_ht ?? 0).toLocaleString('fr-FR')} € HT</span>
             {rec1.resultat && <span style={{ fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 999, background: '#F0FFF4', color: '#16A34A' }}>✓ {rec1.resultat}</span>}
           </div>
-          <div style={{ background: 'linear-gradient(135deg, rgba(123,63,204,0.04), rgba(224,64,171,0.04))', border: '1px solid rgba(123,63,204,0.12)', borderRadius: 12, padding: '14px 16px' }}>
+          <div style={{ background: 'linear-gradient(135deg, rgba(107,53,184,0.04), rgba(200,57,154,0.04))', border: '1px solid rgba(107,53,184,0.12)', borderRadius: 12, padding: '14px 16px' }}>
             <p style={{ fontSize: 11, fontWeight: 700, color: VIOLET, letterSpacing: '0.08em', textTransform: 'uppercase' as const, margin: '0 0 8px' }}>Pourquoi cette formation ?</p>
             <p style={{ fontSize: 13, color: MUTED, lineHeight: 1.6, margin: 0 }}>{buildPourquoi(rec1, state.answers)}</p>
           </div>
@@ -277,12 +277,12 @@ export function StepReport({ state }: Props) {
       {/* F. PARCOURS MÉTIER */}
       {parcoursMatch === 'MATCH_FORT' && parcoursData && (
         <div style={{ background: `linear-gradient(135deg, ${NIGHT}, #2D2A8F)`, borderRadius: 20, padding: '20px', marginBottom: 16, color: '#fff' }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(224,64,171,0.9)', letterSpacing: '0.1em', textTransform: 'uppercase' as const, margin: '0 0 8px' }}>Parcours métier recommandé</p>
+          <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(200,57,154,0.9)', letterSpacing: '0.1em', textTransform: 'uppercase' as const, margin: '0 0 8px' }}>Parcours métier recommandé</p>
           <h3 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: '1.2rem', fontWeight: 800, margin: '0 0 6px' }}>{parcoursData.nom}</h3>
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', margin: '0 0 14px', fontStyle: 'italic' }}>{parcoursData.promesse}</p>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' as const, marginBottom: 14 }}>
             <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: 'rgba(255,255,255,0.1)', color: '#fff' }}>35h de formation</span>
-            <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: 'rgba(224,64,171,0.3)', color: '#fff' }}>3 200 € HT</span>
+            <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: 'rgba(200,57,154,0.3)', color: '#fff' }}>3 200 € HT</span>
           </div>
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', lineHeight: 1.5, margin: 0 }}>
             Ce parcours a été conçu spécifiquement pour les {(parcoursData.metier ?? '').toLowerCase()}. Il couvre l'ensemble des compétences digitales prioritaires pour votre secteur avec un livrable concret à l'issue.
@@ -327,8 +327,8 @@ export function StepReport({ state }: Props) {
         <p style={{ fontSize: 11, fontWeight: 700, color: VIOLET, letterSpacing: '0.08em', textTransform: 'uppercase' as const, margin: '0 0 16px' }}>Votre plan d'action</p>
         <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 0 }}>
           {[
-            { when: 'Maintenant', color: FUCHSIA, bg: 'rgba(224,64,171,0.06)', action: plan.maintenant },
-            { when: '30 jours',   color: VIOLET,  bg: 'rgba(123,63,204,0.06)', action: plan.ensuite },
+            { when: 'Maintenant', color: FUCHSIA, bg: 'rgba(200,57,154,0.06)', action: plan.maintenant },
+            { when: '30 jours',   color: VIOLET,  bg: 'rgba(107,53,184,0.06)', action: plan.ensuite },
             { when: 'À 90 jours', color: '#16A34A', bg: 'rgba(22,163,74,0.06)', action: plan.a90j },
           ].map((item, i) => (
             <div key={i} style={{ display: 'flex', gap: 0, paddingBottom: i < 2 ? 14 : 0, borderBottom: i < 2 ? '1px dashed #E5E7EB' : 'none', marginBottom: i < 2 ? 14 : 0 }}>
@@ -349,7 +349,7 @@ export function StepReport({ state }: Props) {
         <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: '0 0 20px', lineHeight: 1.5 }}>
           Un conseiller MOJO Académie peut vous aider à prioriser, financer et planifier votre parcours.
         </p>
-        <a href={calendlyUrl || '#'} target="_blank" rel="noopener noreferrer" style={{ display: 'block', width: '100%', padding: '14px', borderRadius: 12, background: GRAD, color: '#fff', fontSize: 14, fontWeight: 700, textDecoration: 'none', textAlign: 'center' as const, marginBottom: 10, boxShadow: '0 6px 20px rgba(224,64,171,0.4)', boxSizing: 'border-box' as const }}>
+        <a href={calendlyUrl || '#'} target="_blank" rel="noopener noreferrer" style={{ display: 'block', width: '100%', padding: '14px', borderRadius: 12, background: GRAD, color: '#fff', fontSize: 14, fontWeight: 700, textDecoration: 'none', textAlign: 'center' as const, marginBottom: 10, boxShadow: '0 6px 20px rgba(200,57,154,0.4)', boxSizing: 'border-box' as const }}>
           📅 Échanger avec MOJO Académie
         </a>
         <button

@@ -11,7 +11,7 @@ interface Props {
   update: (patch: Partial<DiagnosticState>) => void
 }
 
-const GRAD = 'linear-gradient(135deg, #9B2FCC, #E040AB)'
+const GRAD = 'linear-gradient(135deg, #6B35B8, #C8399A)'
 
 export function StepCapture({ state, next, update }: Props) {
   const [firstname, setFirstname]           = useState(state.contact?.firstname ?? '')
@@ -96,7 +96,7 @@ export function StepCapture({ state, next, update }: Props) {
 
         {/* Récapitulatif entreprise si déjà renseignée */}
         {hasCompany && (
-          <div style={{ background: 'rgba(123,63,204,0.06)', border: '1px solid rgba(123,63,204,0.15)', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#4B5563' }}>
+          <div style={{ background: 'rgba(107,53,184,0.06)', border: '1px solid rgba(107,53,184,0.15)', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#4B5563' }}>
             🏢 <strong>{state.company!.name}</strong>
             {state.company!.city ? ` · ${state.company!.city}` : ''}
           </div>
@@ -145,10 +145,10 @@ export function StepCapture({ state, next, update }: Props) {
           {/* A — Consentement diagnostic (requis) */}
           <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
             <input type="checkbox" checked={consentDiag} onChange={e => setConsentDiag(e.target.checked)}
-              style={{ marginTop: 2, accentColor: '#E040AB', width: 16, height: 16, flexShrink: 0 }} />
+              style={{ marginTop: 2, accentColor: '#C8399A', width: 16, height: 16, flexShrink: 0 }} />
             <span style={{ fontSize: 12, color: '#4B5563', lineHeight: 1.5 }}>
               J'accepte que mes données soient utilisées pour recevoir ce diagnostic et être recontacté(e) par MOJO ACADÉMIE au sujet de ma demande. *{' '}
-              <a href="/politique-confidentialite" target="_blank" style={{ color: '#7B3FCC' }}>Politique de confidentialité</a>
+              <a href="/politique-confidentialite" target="_blank" style={{ color: '#6B35B8' }}>Politique de confidentialité</a>
             </span>
           </label>
 
@@ -156,7 +156,7 @@ export function StepCapture({ state, next, update }: Props) {
           <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 10, padding: '10px 12px' }}>
             <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
               <input type="checkbox" checked={consentMarketing} onChange={e => setConsentMarketing(e.target.checked)}
-                style={{ marginTop: 2, accentColor: '#E040AB', width: 16, height: 16, flexShrink: 0 }} />
+                style={{ marginTop: 2, accentColor: '#C8399A', width: 16, height: 16, flexShrink: 0 }} />
               <span style={{ fontSize: 12, color: '#4B5563', lineHeight: 1.5 }}>
                 <strong>Optionnel</strong> — J'accepte de recevoir des conseils et actualités de MOJO ACADÉMIE par email (désabonnement en 1 clic à tout moment).
               </span>
@@ -189,7 +189,7 @@ export function StepCapture({ state, next, update }: Props) {
             fontSize: 15, fontWeight: 700,
             cursor: loading ? 'wait' : 'pointer',
             fontFamily: 'inherit', marginTop: 4,
-            boxShadow: isValid && !loading ? '0 6px 20px rgba(224,64,171,0.35)' : 'none',
+            boxShadow: isValid && !loading ? '0 6px 20px rgba(200,57,154,0.35)' : 'none',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             transition: 'all 0.2s',
           }}

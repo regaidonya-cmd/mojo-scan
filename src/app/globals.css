@@ -2,22 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
 :root {
-  --night: #1A186E;
-  --navy: #2D2A8F;
-  --violet: #7B3FCC;
-  --fuchsia: #E040AB;
-  --off: #F8F7FF;
-  --text: #111827;
-  --muted: #4B5563;
-  --grad-main: linear-gradient(135deg, #1A186E, #6B2FBF, #E040AB);
-  --grad-warm: linear-gradient(135deg, #9B2FCC 0%, #E040AB 55%, #FF1A8C 100%);
-  --r-md: 14px;
-  --r-lg: 20px;
-  --r-xl: 28px;
-  --r-full: 999px;
+  /* ── Couleurs officielles MOJO ACADÉMIE v6 ── */
+  --night:   #1A186E;
+  --navy:    #2D2A8F;
+  --violet:  #6B35B8;
+  --fuchsia: #C8399A;
+  --lav:     #EDE9FB;
+  --lav2:    #C5BAF0;
+  --off:     #F7F6FC;
+  --page:    #FAFAF8;
+  --white:   #FFF;
+  --text:    #111020;
+  --muted:   #6B6680;
+  --subtle:  #A09BB8;
+  --border:  #EDEAF5;
+  --border2: #E0DCF0;
+  --r-md:    12px;
+  --r-lg:    18px;
+  --r-xl:    24px;
+  /* Dégradé principal */
+  --grad: linear-gradient(135deg, #6B35B8, #C8399A);
 }
 
 * { box-sizing: border-box; }
@@ -25,10 +32,11 @@
 body {
   font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
   color: var(--text);
-  background: var(--off);
+  background: var(--page);
+  -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3 {
+h1, h2, h3, h4 {
   font-family: 'Bricolage Grotesque', sans-serif;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.03em;
 }

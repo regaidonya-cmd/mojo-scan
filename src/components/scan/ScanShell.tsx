@@ -93,8 +93,8 @@ export function ScanShell({ mode, prefill }: Props) {
             <img src="/logo-white.png" alt="MOJO ACADÉMIE" style={{ height: 28, width: 'auto' }} />
             <span style={{
               fontSize: 11, fontWeight: 700, padding: '2px 10px',
-              borderRadius: 999, background: 'rgba(224,64,171,0.15)',
-              border: '1px solid rgba(224,64,171,0.3)', color: '#E040AB',
+              borderRadius: 999, background: 'rgba(200,57,154,0.15)',
+              border: '1px solid rgba(200,57,154,0.3)', color: '#C8399A',
               letterSpacing: '0.05em', textTransform: 'uppercase' as const
             }}>Scan</span>
             <ModeTag mode={mode} />

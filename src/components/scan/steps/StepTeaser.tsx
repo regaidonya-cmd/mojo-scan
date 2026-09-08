@@ -38,10 +38,10 @@ function getTeaserAxes(state: DiagnosticState): string[] {
   return priorities.slice(0, 3).map(p => p.label)
 }
 
-const GRAD = 'linear-gradient(135deg, #9B2FCC, #E040AB)'
+const GRAD = 'linear-gradient(135deg, #6B35B8, #C8399A)'
 const NIGHT = '#1A186E'
 const MUTED = '#4B5563'
-const OFF = '#F8F7FF'
+const OFF = '#F7F6FC'
 
 export function StepTeaser({ state, next }: Props) {
   const accroche = buildAccroche(state)
@@ -58,7 +58,7 @@ export function StepTeaser({ state, next }: Props) {
           display: 'inline-block',
           fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const,
           padding: '4px 12px', borderRadius: 999,
-          background: 'rgba(123,63,204,0.1)', color: '#7B3FCC',
+          background: 'rgba(107,53,184,0.1)', color: '#6B35B8',
           marginBottom: 12,
         }}>
           Votre diagnostic MOJO
@@ -95,7 +95,7 @@ export function StepTeaser({ state, next }: Props) {
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
             <span style={{ fontSize: 20, flexShrink: 0, marginTop: 2 }}>{priority1.icon}</span>
             <div>
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#7B3FCC', letterSpacing: '0.08em', textTransform: 'uppercase' as const, margin: '0 0 4px' }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#6B35B8', letterSpacing: '0.08em', textTransform: 'uppercase' as const, margin: '0 0 4px' }}>
                 Priorité n°1
               </p>
               <p style={{ fontSize: 15, fontWeight: 700, color: NIGHT, margin: '0 0 6px' }}>
@@ -122,9 +122,9 @@ export function StepTeaser({ state, next }: Props) {
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{
                 width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
-                background: i === 0 ? GRAD : 'rgba(123,63,204,0.08)',
+                background: i === 0 ? GRAD : 'rgba(107,53,184,0.08)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: i === 0 ? '#fff' : '#7B3FCC',
+                color: i === 0 ? '#fff' : '#6B35B8',
                 fontSize: 12, fontWeight: 700,
               }}>
                 {i + 1}
@@ -150,8 +150,8 @@ export function StepTeaser({ state, next }: Props) {
 
       {/* Indicateur de valeur */}
       <div style={{
-        background: 'linear-gradient(135deg, rgba(123,63,204,0.06), rgba(224,64,171,0.06))',
-        border: '1px solid rgba(123,63,204,0.15)',
+        background: 'linear-gradient(135deg, rgba(107,53,184,0.06), rgba(200,57,154,0.06))',
+        border: '1px solid rgba(107,53,184,0.15)',
         borderRadius: 14, padding: '14px 18px', marginBottom: 24,
         display: 'flex', alignItems: 'center', gap: 12,
       }}>
@@ -175,7 +175,7 @@ export function StepTeaser({ state, next }: Props) {
           border: 'none', background: GRAD,
           color: '#fff', fontSize: 15, fontWeight: 700,
           cursor: 'pointer', fontFamily: 'inherit',
-          boxShadow: '0 8px 24px rgba(224,64,171,0.35)',
+          boxShadow: '0 8px 24px rgba(200,57,154,0.35)',
           marginBottom: 10,
         }}
       >

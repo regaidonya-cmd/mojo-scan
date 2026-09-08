@@ -1,6 +1,7 @@
 // ══════════════════════════════════════════════════════════════
 // MOJO Lead Engine — Email transactionnel diagnostic
-// Via Brevo Transactional API (pas de campagne marketing)
+// Via Brevo Transactional API
+// Couleurs officielles MOJO ACADÉMIE v6
 // ══════════════════════════════════════════════════════════════
 
 interface DiagnosticEmailData {
@@ -22,102 +23,133 @@ interface DiagnosticEmailData {
 }
 
 function buildEmailHtml(d: DiagnosticEmailData): string {
-  const calendly = d.calendly_url ?? 'https://calendly.com/mojoacademie'
-  const reportUrl = d.report_url ?? calendly
+  const calendly   = d.calendly_url ?? 'https://calendly.com/regai-donya/diagnostic-digital-offert-10-min-passez-a-l-action'
+  const reportUrl  = d.report_url   ?? calendly
+
+  // Couleurs officielles MOJO ACADÉMIE v6
+  const NIGHT   = '#1A186E'
+  const VIOLET  = '#6B35B8'
+  const FUCHSIA = '#C8399A'
+  const LAV     = '#EDE9FB'
+  const OFF     = '#F7F6FC'
+  const TEXT    = '#111020'
+  const MUTED   = '#6B6680'
+  const BORDER  = '#EDEAF5'
+  const GRAD    = `linear-gradient(135deg, ${VIOLET}, ${FUCHSIA})`
 
   const parcoursBlock = d.parcours_nom ? `
-    <div style="background:#F5F0FF;border-left:3px solid #7B3FCC;padding:14px 16px;margin:20px 0;border-radius:0 8px 8px 0">
-      <p style="font-size:11px;font-weight:700;color:#7B3FCC;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 6px">Parcours métier identifié</p>
-      <p style="font-size:14px;font-weight:700;color:#1A186E;margin:0 0 4px">${d.parcours_nom}</p>
-      <p style="font-size:13px;color:#4B5563;margin:0">${d.parcours_promesse ?? ''}</p>
-    </div>
+    <tr><td style="padding:0 32px 20px">
+      <div style="background:${LAV};border-left:3px solid ${VIOLET};padding:14px 16px;border-radius:0 8px 8px 0">
+        <p style="font-size:10px;font-weight:700;color:${VIOLET};text-transform:uppercase;letter-spacing:0.08em;margin:0 0 6px;font-family:'Plus Jakarta Sans',Arial,sans-serif">Parcours métier identifié</p>
+        <p style="font-size:14px;font-weight:700;color:${NIGHT};margin:0 0 4px;font-family:'Bricolage Grotesque','Arial Black',Arial,sans-serif">${d.parcours_nom}</p>
+        <p style="font-size:13px;color:${MUTED};margin:0;font-family:'Plus Jakarta Sans',Arial,sans-serif">${d.parcours_promesse ?? ''}</p>
+      </div>
+    </td></tr>
   ` : ''
 
   const autres = [d.formation_2_titre, d.formation_3_titre].filter(Boolean)
   const autresBlock = autres.length > 0 ? `
-    <p style="font-size:13px;font-weight:600;color:#4B5563;margin:20px 0 10px">Autres formations recommandées :</p>
-    ${autres.map((t, i) => `<p style="font-size:13px;color:#4B5563;margin:4px 0">→ ${t}</p>`).join('')}
+    <tr><td style="padding:0 32px 20px">
+      <p style="font-size:12px;font-weight:600;color:${MUTED};margin:0 0 8px;font-family:'Plus Jakarta Sans',Arial,sans-serif">Autres formations recommandées :</p>
+      ${autres.map(t => `<p style="font-size:13px;color:${MUTED};margin:4px 0;font-family:'Plus Jakarta Sans',Arial,sans-serif">→ ${t}</p>`).join('')}
+    </td></tr>
   ` : ''
 
   return `<!DOCTYPE html>
 <html lang="fr">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#F8F7FF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#F8F7FF;padding:24px 16px">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Votre diagnostic MOJO ACADÉMIE</title>
+</head>
+<body style="margin:0;padding:0;background:${OFF};font-family:'Plus Jakarta Sans',Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${OFF};padding:24px 16px">
   <tr><td align="center">
-    <table width="100%" style="max-width:560px;background:#fff;border-radius:20px;overflow:hidden">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px">
 
-      <!-- Header -->
-      <tr><td style="background:#1A186E;padding:28px 28px 24px">
-        <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:0.1em;text-transform:uppercase">Diagnostic digital & IA</p>
-        <h1 style="margin:6px 0 0;font-size:22px;font-weight:800;color:#fff;letter-spacing:-0.03em">MOJO Académie</h1>
-      </td></tr>
+    <!-- HEADER -->
+    <tr><td style="background:${NIGHT};padding:28px 32px 24px;border-radius:16px 16px 0 0">
+      <p style="margin:0 0 6px;font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:0.12em;text-transform:uppercase;font-family:'Plus Jakarta Sans',Arial,sans-serif">Diagnostic digital & IA</p>
+      <h1 style="margin:0;font-size:24px;font-weight:800;color:#fff;letter-spacing:-0.03em;font-family:'Bricolage Grotesque','Arial Black',Arial,sans-serif">MOJO ACADÉMIE</h1>
+    </td></tr>
 
-      <!-- Corps -->
-      <tr><td style="padding:28px">
+    <!-- CORPS -->
+    <tr><td style="background:#fff;padding:28px 32px 0">
+      <p style="font-size:15px;color:${NIGHT};margin:0 0 16px;font-family:'Plus Jakarta Sans',Arial,sans-serif">
+        Bonjour <strong>${d.to_name}</strong>,
+      </p>
+      <p style="font-size:14px;color:${MUTED};line-height:1.6;margin:0 0 24px;font-family:'Plus Jakarta Sans',Arial,sans-serif">
+        Votre diagnostic MOJO ACADÉMIE${d.company ? ` pour <strong style="color:${NIGHT}">${d.company}</strong>` : ''} est prêt.
+        Voici la priorité principale que nous avons identifiée pour votre activité.
+      </p>
+    </td></tr>
 
-        <p style="font-size:15px;color:#1A186E;margin:0 0 20px">
-          Bonjour <strong>${d.to_name}</strong>,
+    <!-- PRIORITÉ -->
+    <tr><td style="background:#fff;padding:0 32px 20px">
+      <div style="background:${OFF};border-radius:12px;padding:16px 18px">
+        <p style="font-size:10px;font-weight:700;color:${VIOLET};text-transform:uppercase;letter-spacing:0.08em;margin:0 0 6px;font-family:'Plus Jakarta Sans',Arial,sans-serif">Votre priorité principale</p>
+        <p style="font-size:16px;font-weight:700;color:${NIGHT};margin:0 0 6px;font-family:'Bricolage Grotesque','Arial Black',Arial,sans-serif">${d.priority_label}</p>
+        <p style="font-size:13px;color:${MUTED};margin:0;line-height:1.5;font-family:'Plus Jakarta Sans',Arial,sans-serif">${d.priority_detail}</p>
+      </div>
+    </td></tr>
+
+    <!-- FORMATION #1 -->
+    <tr><td style="background:#fff;padding:0 32px 20px">
+      <div style="border:2px solid ${FUCHSIA};border-radius:14px;padding:18px">
+        <p style="font-size:10px;font-weight:700;color:${FUCHSIA};text-transform:uppercase;letter-spacing:0.1em;margin:0 0 8px;font-family:'Plus Jakarta Sans',Arial,sans-serif">Formation recommandée</p>
+        <p style="font-size:16px;font-weight:700;color:${NIGHT};margin:0 0 6px;line-height:1.3;font-family:'Bricolage Grotesque','Arial Black',Arial,sans-serif">${d.formation_1_titre}</p>
+        <p style="font-size:13px;color:${MUTED};font-style:italic;margin:0 0 14px;font-family:'Plus Jakarta Sans',Arial,sans-serif">${d.formation_1_promesse}</p>
+        <table cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td style="padding-right:8px">
+              <span style="font-size:12px;font-weight:700;padding:4px 12px;border-radius:99px;background:${LAV};color:${VIOLET};font-family:'Plus Jakarta Sans',Arial,sans-serif;display:inline-block">⏱ ${d.formation_1_duree}h</span>
+            </td>
+            <td>
+              <span style="font-size:12px;font-weight:700;padding:4px 12px;border-radius:99px;background:#FBF0F7;color:${FUCHSIA};font-family:'Plus Jakarta Sans',Arial,sans-serif;display:inline-block">${d.formation_1_tarif.toLocaleString('fr-FR')} € HT</span>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </td></tr>
+
+    ${autresBlock}
+    ${parcoursBlock}
+
+    <!-- FINANCEMENT -->
+    <tr><td style="background:#fff;padding:0 32px 24px">
+      <div style="background:#F0FFF4;border-radius:12px;padding:14px 16px">
+        <p style="font-size:13px;color:#166534;line-height:1.6;margin:0;font-family:'Plus Jakarta Sans',Arial,sans-serif">
+          Selon votre situation, cette formation peut éventuellement faire l'objet d'une prise en charge par votre OPCO ou votre fonds de formation, sous réserve des critères en vigueur.
         </p>
+      </div>
+    </td></tr>
 
-        <p style="font-size:14px;color:#4B5563;line-height:1.6;margin:0 0 20px">
-          Votre diagnostic MOJO${d.company ? ` pour <strong>${d.company}</strong>` : ''} est prêt.
-          Nous avons identifié une priorité principale pour votre activité.
-        </p>
+    <!-- CTA PRINCIPAL -->
+    <tr><td style="background:#fff;padding:0 32px 12px;text-align:center">
+      <a href="${calendly}?utm_source=mojo_lead_engine&utm_medium=email&utm_campaign=diagnostic"
+         style="display:inline-block;background:${NIGHT};color:#fff;text-decoration:none;font-size:14px;font-weight:700;padding:14px 28px;border-radius:12px;font-family:'Plus Jakarta Sans',Arial,sans-serif">
+        📅 Échanger sur mon diagnostic
+      </a>
+    </td></tr>
 
-        <!-- Priorité -->
-        <div style="background:#F8F7FF;border-radius:14px;padding:16px 18px;margin:0 0 20px">
-          <p style="font-size:11px;font-weight:700;color:#7B3FCC;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 6px">Votre priorité principale</p>
-          <p style="font-size:16px;font-weight:700;color:#1A186E;margin:0 0 6px">${d.priority_label}</p>
-          <p style="font-size:13px;color:#4B5563;margin:0;line-height:1.5">${d.priority_detail}</p>
-        </div>
+    <!-- CTA SECONDAIRE -->
+    <tr><td style="background:#fff;padding:0 32px 32px;text-align:center">
+      <a href="${reportUrl}"
+         style="font-size:13px;color:${VIOLET};text-decoration:underline;font-family:'Plus Jakarta Sans',Arial,sans-serif">
+        Consulter mon rapport complet →
+      </a>
+    </td></tr>
 
-        <!-- Formation #1 -->
-        <div style="border:2px solid #E040AB;border-radius:14px;padding:18px;margin:0 0 20px">
-          <p style="font-size:10px;font-weight:700;color:#E040AB;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 8px">Formation recommandée</p>
-          <p style="font-size:16px;font-weight:700;color:#1A186E;margin:0 0 6px;line-height:1.3">${d.formation_1_titre}</p>
-          <p style="font-size:13px;color:#4B5563;font-style:italic;margin:0 0 12px">${d.formation_1_promesse}</p>
-          <div style="display:inline-flex;gap:8px">
-            <span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:#F5F0FF;color:#7B3FCC">⏱ ${d.formation_1_duree}h</span>
-            <span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:#FDF0F7;color:#E040AB">${d.formation_1_tarif.toLocaleString('fr-FR')} € HT</span>
-          </div>
-        </div>
+    <!-- FOOTER -->
+    <tr><td style="background:${OFF};padding:18px 32px;border-radius:0 0 16px 16px;border-top:1px solid ${BORDER}">
+      <p style="font-size:11px;color:${MUTED};margin:0;line-height:1.6;text-align:center;font-family:'Plus Jakarta Sans',Arial,sans-serif">
+        MOJO ACADÉMIE — Organisme de formation certifié Qualiopi<br>
+        Vous recevez cet email car vous avez demandé votre diagnostic digital.<br>
+        <a href="#" style="color:${MUTED}">Se désabonner</a>
+      </p>
+    </td></tr>
 
-        ${autresBlock}
-        ${parcoursBlock}
-
-        <!-- Financement -->
-        <div style="background:#F0FFF4;border-radius:12px;padding:14px 16px;margin:0 0 24px">
-          <p style="font-size:13px;color:#166534;line-height:1.6;margin:0">
-            Selon votre situation, cette formation peut éventuellement faire l'objet d'une prise en charge par votre OPCO ou votre fonds de formation, sous réserve des critères en vigueur.
-          </p>
-        </div>
-
-        <!-- CTA principal -->
-        <div style="text-align:center;margin:0 0 12px">
-          <a href="${calendly}?utm_source=mojo_lead_engine&utm_medium=email&utm_campaign=diagnostic" style="display:inline-block;background:linear-gradient(135deg,#9B2FCC,#E040AB);color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 28px;border-radius:12px;border:none">
-            📅 Échanger sur mon diagnostic
-          </a>
-        </div>
-
-        <!-- CTA secondaire -->
-        <div style="text-align:center;margin:0 0 28px">
-          <a href="${reportUrl}" style="font-size:13px;color:#7B3FCC;text-decoration:underline">
-            Consulter mon rapport complet →
-          </a>
-        </div>
-
-      </td></tr>
-
-      <!-- Footer -->
-      <tr><td style="background:#F8F7FF;padding:18px 28px;border-top:1px solid #E5E7EB">
-        <p style="font-size:11px;color:#9CA3AF;margin:0;line-height:1.6;text-align:center">
-          MOJO Académie — Organisme de formation certifié Qualiopi<br>
-          Vous recevez cet email car vous avez demandé votre diagnostic digital.
-        </p>
-      </td></tr>
-
-    </table>
+  </table>
   </td></tr>
 </table>
 </body>
@@ -135,9 +167,11 @@ export async function sendDiagnosticEmail(data: DiagnosticEmailData): Promise<{
     return { success: false, error: 'BREVO_API_KEY manquante' }
   }
 
+  const senderEmail = process.env.BREVO_SENDER_EMAIL ?? 'regai.donya@mojoacademie.com'
+
   try {
-    const html = buildEmailHtml(data)
-    const subject = `Votre diagnostic digital & IA${data.company ? ` — ${data.company}` : ''}`
+    const html    = buildEmailHtml(data)
+    const subject = `Votre diagnostic digital & IA${data.company ? ` — ${data.company}` : ''} | MOJO ACADÉMIE`
 
     const res = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
@@ -146,14 +180,11 @@ export async function sendDiagnosticEmail(data: DiagnosticEmailData): Promise<{
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        sender: {
-          name: 'MOJO Académie',
-          email: process.env.BREVO_SENDER_EMAIL ?? 'regai.donya@mojoacademie.com',
-        },
-        to: [{ email: data.to_email, name: data.to_name }],
+        sender:      { name: 'MOJO ACADÉMIE', email: senderEmail },
+        to:          [{ email: data.to_email, name: data.to_name }],
         subject,
         htmlContent: html,
-        tags: ['diagnostic', 'mojo-lead-engine'],
+        tags:        ['diagnostic', 'mojo-lead-engine'],
       }),
     })
 
@@ -163,9 +194,10 @@ export async function sendDiagnosticEmail(data: DiagnosticEmailData): Promise<{
       return { success: true, message_id: json.messageId }
     }
 
-    const err = await res.json().catch(() => ({}))
-    console.error(`[Email] ✗ Brevo SMTP ${res.status}:`, err)
-    return { success: false, error: `SMTP ${res.status}: ${err.message ?? 'error'}` }
+    const err    = await res.json().catch(() => ({}))
+    const errMsg = `SMTP ${res.status}: ${err.message ?? 'error'}`
+    console.error(`[Email] ✗ ${errMsg}`)
+    return { success: false, error: errMsg }
 
   } catch (e: any) {
     console.error('[Email] Exception:', e.message)

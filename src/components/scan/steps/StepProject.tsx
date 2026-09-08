@@ -12,8 +12,8 @@ interface Props {
 }
 
 const PROJECT_CODES = ['P4','P5','P6','P7']
-const GRAD = 'linear-gradient(135deg, #9B2FCC, #E040AB)'
-const GRAD_LIGHT = 'linear-gradient(135deg, rgba(123,63,204,0.08), rgba(224,64,171,0.08))'
+const GRAD = 'linear-gradient(135deg, #6B35B8, #C8399A)'
+const GRAD_LIGHT = 'linear-gradient(135deg, rgba(107,53,184,0.08), rgba(200,57,154,0.08))'
 
 export function StepProject({ state, next, update }: Props) {
   const questions = QUESTIONS.filter(q => PROJECT_CODES.includes(q.code))
@@ -41,7 +41,7 @@ export function StepProject({ state, next, update }: Props) {
                     style={{
                       width: '100%', textAlign: 'left',
                       padding: '11px 14px', borderRadius: 'var(--r-md)',
-                      border: isSel ? '2px solid #E040AB' : '1.5px solid #E5E7EB',
+                      border: isSel ? '2px solid #C8399A' : '1.5px solid #E5E7EB',
                       background: isSel ? GRAD_LIGHT : '#fff',
                       color: isSel ? 'var(--night)' : 'var(--text)',
                       fontSize: 13, fontWeight: isSel ? 700 : 500,
@@ -66,7 +66,7 @@ export function StepProject({ state, next, update }: Props) {
           fontSize: 15, fontWeight: 700,
           cursor: allAnswered ? 'pointer' : 'not-allowed',
           fontFamily: 'inherit', transition: 'all 0.2s',
-          boxShadow: allAnswered ? '0 6px 20px rgba(224,64,171,0.35)' : 'none',
+          boxShadow: allAnswered ? '0 6px 20px rgba(200,57,154,0.35)' : 'none',
         }}
       >
         {allAnswered ? 'Voir mes résultats →' : 'Répondez aux questions pour continuer'}

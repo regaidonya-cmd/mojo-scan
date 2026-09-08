@@ -16,11 +16,11 @@ const btn = (primary: boolean) => ({
   padding: primary ? '13px 24px' : '11px 20px',
   borderRadius: 'var(--r-md)',
   border: primary ? 'none' : '1.5px solid #E5E7EB',
-  background: primary ? 'linear-gradient(135deg, #9B2FCC, #E040AB)' : '#fff',
+  background: primary ? 'linear-gradient(135deg, #6B35B8, #C8399A)' : '#fff',
   color: primary ? '#fff' : 'var(--muted)',
   fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
   transition: 'all 0.2s',
-  boxShadow: primary ? '0 6px 20px rgba(224,64,171,0.35)' : 'none',
+  boxShadow: primary ? '0 6px 20px rgba(200,57,154,0.35)' : 'none',
 })
 
 export function StepCompany({ state, next, update }: Props) {
@@ -81,7 +81,7 @@ export function StepCompany({ state, next, update }: Props) {
           <div style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)' }}>
             <div style={{
               width: 16, height: 16, border: '2px solid #E5E7EB',
-              borderTopColor: '#E040AB', borderRadius: '50%',
+              borderTopColor: '#C8399A', borderRadius: '50%',
               animation: 'spin 0.8s linear infinite'
             }} />
           </div>
@@ -129,7 +129,7 @@ export function StepCompany({ state, next, update }: Props) {
           </p>
           <button
             onClick={() => setManual(true)}
-            style={{ fontSize: 13, color: '#7B3FCC', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit' }}
+            style={{ fontSize: 13, color: '#6B35B8', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit' }}
           >
             Saisir le nom manuellement
           </button>
