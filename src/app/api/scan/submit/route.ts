@@ -5,6 +5,7 @@ import { computeRecommendations } from '@/lib/scoring/modules'
 import { computeFunding } from '@/lib/funding/engine'
 import { ENGINE_VERSION } from '@/lib/scoring/version'
 import { syncContactBrevo } from '@/lib/brevo/sync'
+import { sendHotLeadAlert } from '@/lib/email/hot-lead'
 import { z } from 'zod'
 
 const SubmitSchema = z.object({
@@ -208,6 +209,22 @@ export async function POST(req: NextRequest) {
       event_type: 'diagnostic_completed',
       properties: { mode: data.mode, branch, lead_score: leadScore.total },
     })
+
+    // ── Alerte HOT lead — non bloquant ────────────────────────
+    if (data.contact?.email && leadScore.total >= 50) {
+      sendHotLeadAlert({
+        firstname:     data.contact.firstname,
+        lastname:      data.contact.lastname,
+        email:         data.contact.email,
+        phone:         data.contact.phone,
+        company:       data.company?.name,
+        lead_score:    leadScore.total,
+        priority:      priorities[0]?.label ?? '',
+        formation_1:   recommendations[0]?.titre ?? '',
+        diagnostic_id: diag.id,
+        report_url:    reportUrl,
+      }).catch(e => console.error('[HOT LEAD] Exception:', e))
+    }
 
     // ── Brevo — uniquement si consentement marketing ───────────
     // Non bloquant : le diagnostic est déjà sauvegardé

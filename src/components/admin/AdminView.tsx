@@ -63,6 +63,12 @@ export function AdminView({ diagnostics, password }: { diagnostics: any[]; passw
       const c = Array.isArray(d.contacts) ? d.contacts[0] : d.contacts
       return c?.marketing_consent
     }).length,
+    hot: diagnostics.filter(d => (d.lead_score ?? 0) >= 75).length,
+    warm: diagnostics.filter(d => (d.lead_score ?? 0) >= 50 && (d.lead_score ?? 0) < 75).length,
+    reportSent: diagnostics.filter(d => {
+      const c = Array.isArray(d.contacts) ? d.contacts[0] : d.contacts
+      return c?.status === 'REPORT_SENT'
+    }).length,
   }
 
   return (
@@ -97,6 +103,9 @@ export function AdminView({ diagnostics, password }: { diagnostics: any[]; passw
             { label: 'Total diagnostics', value: stats.total, icon: '📋' },
             { label: 'Cette semaine', value: stats.thisWeek, icon: '📅' },
             { label: 'Consent marketing', value: stats.withConsent, icon: '✉️' },
+          { label: '🔥 HOT leads', value: stats.hot, icon: '🔥' },
+          { label: '⚡ WARM leads', value: stats.warm, icon: '⚡' },
+          { label: 'Rapports envoyés', value: stats.reportSent, icon: '📧' },
           ].map((s, i) => (
             <div key={i} style={{ background: '#fff', borderRadius: 14, padding: '18px 20px', border: '1px solid #EDEAF5' }}>
               <p style={{ fontSize: 24, margin: '0 0 4px' }}>{s.icon}</p>

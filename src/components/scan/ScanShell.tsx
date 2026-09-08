@@ -12,6 +12,7 @@ import { StepTeaser }    from './steps/StepTeaser'
 import { StepCapture }   from './steps/StepCapture'
 import { StepReport }    from './steps/StepReport'
 import { ProgressBar }   from './ProgressBar'
+import { TrustBar }      from './TrustBar'
 import { ModeTag }       from './ModeTag'
 
 const STEPS: DiagnosticStep[] = [
@@ -116,6 +117,15 @@ export function ScanShell({ mode, prefill }: Props) {
         </div>
         {state.step !== 'report' && <ProgressBar progress={progress} />}
       </header>
+
+      {/* TrustBar — visible étape 1 uniquement */}
+      {state.step === 'company' && (
+        <div style={{ background: '#fff', borderBottom: '1px solid #EDEAF5', padding: '6px 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto' }}>
+            <TrustBar />
+          </div>
+        </div>
+      )}
 
       {/* Contenu */}
       <main style={{ padding: '0 16px 80px' }}>

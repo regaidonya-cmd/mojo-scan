@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from 'react'
 import type { DiagnosticState, ApiCompanySearchResult } from '@/types'
 import { StepWrapper } from '../StepWrapper'
+import { TrustCompact } from '../TrustBar'
 
 interface Props {
   state: DiagnosticState
@@ -159,6 +160,7 @@ export function StepCompany({ state, next, update }: Props) {
           </button>
         )}
       </div>
+      <TrustCompact />
     </StepWrapper>
   )
 }
