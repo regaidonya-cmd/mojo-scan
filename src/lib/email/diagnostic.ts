@@ -23,7 +23,7 @@ interface DiagnosticEmailData {
 }
 
 function buildEmailHtml(d: DiagnosticEmailData): string {
-  const calendly   = d.calendly_url ?? 'https://calendly.com/regai-donya/diagnostic-digital-offert-10-min-passez-a-l-action'
+  const calendly = d.calendly_url ?? 'https://calendly.com/regai-donya/diagnostic-digital-offert-10-min-passez-a-l-action'
   const reportUrl  = d.report_url   ?? calendly
 
   // Couleurs officielles MOJO ACADÉMIE v6

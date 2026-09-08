@@ -184,7 +184,7 @@ export function StepTeaser({ state, next }: Props) {
 
       {/* CTA secondaire */}
       <a
-        href="https://calendly.com/mojoacademie"
+        href="https://calendly.com/regai-donya/diagnostic-digital-offert-10-min-passez-a-l-action"
         target="_blank"
         rel="noopener noreferrer"
         style={{

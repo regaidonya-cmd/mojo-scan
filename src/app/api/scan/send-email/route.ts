@@ -70,8 +70,8 @@ export async function POST(req: NextRequest) {
       formation_3_titre: rec3?.titre,
       parcours_nom:    data.parcoursMatch?.confiance === 'MATCH_FORT' ? data.parcoursMatch?.nom : undefined,
       parcours_promesse: data.parcoursMatch?.confiance === 'MATCH_FORT' ? data.parcoursMatch?.promesse : undefined,
-      report_url: `${process.env.CALENDLY_URL ?? process.env.NEXT_PUBLIC_URL ?? "https://calendly.com/regai-donya/diagnostic-digital-offert-10-min-passez-a-l-action"}`,
-      calendly_url: process.env.CALENDLY_URL ?? 'https://calendly.com/mojoacademie',
+      report_url: `${process.env.NEXT_PUBLIC_URL ?? "https://mojo-scan.vercel.app"}/scan`,
+      calendly_url: process.env.CALENDLY_URL ?? 'https://calendly.com/regai-donya/diagnostic-digital-offert-10-min-passez-a-l-action',
     }
 
     const result = await sendDiagnosticEmail(emailData)
