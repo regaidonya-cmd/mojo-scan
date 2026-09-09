@@ -2,10 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
 :root {
-  /* ── Couleurs officielles MOJO ACADÉMIE v6 ── */
   --night:   #1A186E;
   --navy:    #2D2A8F;
   --violet:  #6B35B8;
@@ -14,7 +13,6 @@
   --lav2:    #C5BAF0;
   --off:     #F7F6FC;
   --page:    #FAFAF8;
-  --white:   #FFF;
   --text:    #111020;
   --muted:   #6B6680;
   --subtle:  #A09BB8;
@@ -23,20 +21,23 @@
   --r-md:    12px;
   --r-lg:    18px;
   --r-xl:    24px;
-  /* Dégradé principal */
-  --grad: linear-gradient(135deg, #6B35B8, #C8399A);
+  --grad:    linear-gradient(135deg, #6B35B8, #C8399A);
+  --font-display: 'Bricolage Grotesque', sans-serif;
+  --font-body:    'Plus Jakarta Sans', sans-serif;
 }
 
-* { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
 
 body {
-  font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  font-family: var(--font-body);
   color: var(--text);
   background: var(--page);
   -webkit-font-smoothing: antialiased;
+  margin: 0;
 }
 
-h1, h2, h3, h4 {
-  font-family: 'Bricolage Grotesque', sans-serif;
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
   letter-spacing: -0.03em;
+  line-height: 1.15;
 }

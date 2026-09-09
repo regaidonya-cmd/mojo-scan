@@ -32,7 +32,7 @@ const STEP_LABELS: Record<DiagnosticStep, string> = {
 }
 
 // Numéros d'étapes visibles (hors report)
-const VISIBLE_STEPS = STEPS.filter(s => s !== 'report')
+const VISIBLE_STEPS = STEPS.filter(s => s !== 'report') as DiagnosticStep[]
 
 interface Props { mode: ScanMode; prefill?: Partial<DiagnosticState> }
 
@@ -155,8 +155,8 @@ export function ScanShell({ mode, prefill }: Props) {
             <textarea
               placeholder="Note interne conseiller (non visible par le prospect)..."
               style={{ width: '100%', fontSize: 12, border: '1px solid #EDEAF5', borderRadius: 8, padding: '6px 10px', resize: 'none', height: 36, fontFamily: 'inherit' }}
-              value={state.adviser_note ?? ''}
-              onChange={e => update({ adviser_note: e.target.value })}
+              value={(state as any).adviser_note ?? ''}
+              onChange={e => update({ ...(state as any), adviser_note: e.target.value })}
             />
           </div>
         </div>

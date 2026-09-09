@@ -8,20 +8,26 @@ interface Props {
 
 export function StepWrapper({ title, subtitle, children }: Props) {
   return (
-    <div style={{ paddingTop: 32, paddingBottom: 16 }}>
+    <div style={{ paddingTop: 28, paddingBottom: 8 }}>
       <h1 style={{
-        fontFamily: "'Bricolage Grotesque', sans-serif",
-        fontSize: 'clamp(1.5rem, 4vw, 1.9rem)',
+        fontFamily: 'var(--font-display)',
+        fontSize: 'clamp(1.4rem, 4vw, 1.75rem)',
         fontWeight: 800,
         color: 'var(--night)',
-        letterSpacing: '-0.04em',
-        lineHeight: 1.1,
-        margin: 0,
+        letterSpacing: '-0.03em',
+        lineHeight: 1.15,
+        margin: '0 0 8px',
       }}>
         {title}
       </h1>
       {subtitle && (
-        <p style={{ marginTop: 8, color: 'var(--muted)', fontSize: 15, lineHeight: 1.6 }}>
+        <p style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: 14,
+          color: 'var(--muted)',
+          lineHeight: 1.6,
+          margin: '0 0 4px',
+        }}>
           {subtitle}
         </p>
       )}

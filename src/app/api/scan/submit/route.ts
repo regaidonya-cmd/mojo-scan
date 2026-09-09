@@ -13,7 +13,7 @@ const SubmitSchema = z.object({
   company: z.object({
     siren: z.string().optional(), siret: z.string().optional(),
     name: z.string(), naf: z.string().optional(), naf_label: z.string().optional(),
-    city: z.string().optional(), postal_code: z.string().optional(), employee_band: z.string().optional(),
+    city: z.string().optional(), postal_code: z.string().optional(), employee_band: z.string().optional() as any,
   }).optional(),
   answers: z.array(z.object({ question_code: z.string(), value: z.string(), score: z.number() })),
   contact: z.object({

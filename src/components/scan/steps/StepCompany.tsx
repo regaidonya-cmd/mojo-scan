@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
-import type { DiagnosticState, ApiCompanySearchResult } from '@/types'
+import { useState, useRef } from 'react'
+import type { DiagnosticState } from '@/types'
 import { StepWrapper } from '../StepWrapper'
 import { TrustCompact } from '../TrustBar'
+import { NIGHT, VIOLET, FUCHSIA, MUTED, SUBTLE, BORDER, BORDER2, LAV, LAV2, OFF, GRAD, R_MD, R_LG, FONT_DISPLAY, FONT_BODY, TEXT } from '@/lib/design/tokens'
 
 interface Props {
   state: DiagnosticState
@@ -12,155 +13,172 @@ interface Props {
   update: (patch: Partial<DiagnosticState>) => void
 }
 
-const btn = (primary: boolean) => ({
-  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-  padding: primary ? '13px 24px' : '11px 20px',
-  borderRadius: 'var(--r-md)',
-  border: primary ? 'none' : '1.5px solid #E5E7EB',
-  background: primary ? 'linear-gradient(135deg, #6B35B8, #C8399A)' : '#fff',
-  color: primary ? '#fff' : 'var(--muted)',
-  fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-  transition: 'all 0.2s',
-  boxShadow: primary ? '0 6px 20px rgba(200,57,154,0.35)' : 'none',
-})
+interface ApiCompany {
+  siren: string
+  siret?: string
+  name: string
+  naf?: string
+  naf_label?: string
+  city?: string
+  postal_code?: string
+  employee_band?: string
+}
 
 export function StepCompany({ state, next, update }: Props) {
   const [query, setQuery]     = useState(state.company?.name ?? '')
-  const [results, setResults] = useState<ApiCompanySearchResult[]>([])
+  const [results, setResults] = useState<ApiCompany[]>([])
   const [loading, setLoading] = useState(false)
+  const [selected, setSelected] = useState<ApiCompany | null>(state.company ?? null)
   const [manual, setManual]   = useState(false)
-  const [manualName, setManualName] = useState('')
-  const debounceRef = useRef<any>()
+  const debounce = useRef<any>(null)
 
-  const search = useCallback((q: string) => {
+  const search = async (q: string) => {
     setQuery(q)
-    if (debounceRef.current) clearTimeout(debounceRef.current)
     if (q.length < 2) { setResults([]); return }
-    debounceRef.current = setTimeout(async () => {
+    clearTimeout(debounce.current)
+    debounce.current = setTimeout(async () => {
       setLoading(true)
       try {
         const res = await fetch(`/api/company/search?q=${encodeURIComponent(q)}`)
-        const json = await res.json()
-        setResults(json.results ?? [])
+        const data = await res.json()
+        setResults(data.results ?? [])
       } catch { setResults([]) }
       finally { setLoading(false) }
     }, 350)
-  }, [])
-
-  const select = (company: ApiCompanySearchResult) => {
-    update({ company })
-    next({ company })
   }
 
-  const skipCompany = () => {
-    const name = manualName.trim() || query.trim()
-    next(name ? { company: { name } } : {})
+  const select = (company: ApiCompany) => {
+    setSelected(company)
+    setQuery(company.name)
+    setResults([])
+    update({ company })
+  }
+
+  const handleNext = () => {
+    if (!selected && !manual) return
+    if (manual && query.trim()) {
+      update({ company: { name: query.trim() } as any })
+    }
+    next()
   }
 
   const inputStyle = {
-    width: '100%', padding: '13px 16px', borderRadius: 'var(--r-md)',
-    border: '1.5px solid #E5E7EB', background: '#fff',
-    fontSize: 15, fontFamily: 'inherit', color: 'var(--text)',
-    outline: 'none', transition: 'border-color 0.2s',
+    width: '100%', padding: '12px 14px',
+    borderRadius: R_MD, border: `1.5px solid ${BORDER2}`,
+    fontSize: 15, fontFamily: FONT_BODY, color: TEXT,
+    background: '#fff', outline: 'none',
+    boxSizing: 'border-box' as const,
   }
 
   return (
     <StepWrapper
-      title="Commençons par votre entreprise"
+      title="Votre entreprise"
       subtitle="Recherchez votre entreprise pour personnaliser votre diagnostic."
     >
-      <div style={{ marginTop: 24, position: 'relative' }}>
-        <input
-          type="text"
-          value={query}
-          onChange={e => search(e.target.value)}
-          placeholder="Nom de l'entreprise ou enseigne..."
-          style={inputStyle}
-          autoFocus
-        />
-        {loading && (
-          <div style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)' }}>
-            <div style={{
-              width: 16, height: 16, border: '2px solid #E5E7EB',
-              borderTopColor: '#C8399A', borderRadius: '50%',
-              animation: 'spin 0.8s linear infinite'
-            }} />
-          </div>
-        )}
-      </div>
+      <div style={{ marginTop: 24 }}>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-
-      {/* Résultats */}
-      {results.length > 0 && (
-        <div style={{
-          marginTop: 6, background: '#fff', borderRadius: 'var(--r-md)',
-          border: '1.5px solid #E5E7EB', overflow: 'hidden',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.08)'
-        }}>
-          {results.map((r, i) => (
-            <button
-              key={r.siren ?? `${r.name}-${i}`}
-              onClick={() => select(r)}
-              style={{
-                width: '100%', textAlign: 'left', padding: '12px 16px',
-                background: 'none', border: 'none', borderBottom: i < results.length - 1 ? '1px solid #F3F4F6' : 'none',
-                cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.1s',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--off)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-            >
-              <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--night)' }}>
-                {r.trade_name ?? r.name}
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
-                {[r.city, r.naf_label].filter(Boolean).join(' · ')}
-                {r.siret ? <span style={{ color: "#9CA3AF", marginLeft: 8 }}>SIRET {r.siret}</span> : r.siren ? <span style={{ color: "#9CA3AF", marginLeft: 8 }}>SIREN {r.siren}</span> : null}
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Pas trouvé */}
-      {query.length > 2 && results.length === 0 && !loading && !manual && (
-        <div style={{ marginTop: 16, textAlign: 'center' }}>
-          <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 8 }}>
-            Entreprise introuvable dans la base officielle ?
-          </p>
-          <button
-            onClick={() => setManual(true)}
-            style={{ fontSize: 13, color: '#6B35B8', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit' }}
-          >
-            Saisir le nom manuellement
-          </button>
-        </div>
-      )}
-
-      {manual && (
-        <div style={{ marginTop: 12 }}>
+        {/* Champ de recherche */}
+        <div style={{ position: 'relative' as const, marginBottom: 8 }}>
           <input
             type="text"
-            value={manualName}
-            onChange={e => setManualName(e.target.value)}
-            placeholder="Nom de votre entreprise"
+            value={query}
+            onChange={e => { setSelected(null); search(e.target.value) }}
+            placeholder="Nom de l'entreprise ou SIRET…"
             style={inputStyle}
             autoFocus
+            autoComplete="off"
           />
+          {loading && (
+            <div style={{ position: 'absolute' as const, right: 14, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, border: `2px solid ${LAV}`, borderTopColor: VIOLET, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+          )}
         </div>
-      )}
+        <style>{`@keyframes spin{to{transform:translateY(-50%) rotate(360deg)}}`}</style>
 
-      <div style={{ marginTop: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <button onClick={() => next({})} style={{ fontSize: 13, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
-          Passer cette étape →
-        </button>
-        {(manual && manualName.trim()) && (
-          <button onClick={skipCompany} style={btn(true)}>
-            Continuer →
+        {/* Résultats */}
+        {results.length > 0 && (
+          <div style={{ background: '#fff', border: `1px solid ${BORDER}`, borderRadius: R_MD, overflow: 'hidden', marginBottom: 16, boxShadow: '0 4px 16px rgba(26,24,110,0.08)' }}>
+            {results.slice(0, 5).map((r, i) => (
+              <button
+                key={r.siren ?? `${r.name}-${i}`}
+                onClick={() => select(r)}
+                style={{
+                  width: '100%', padding: '12px 14px', textAlign: 'left' as const,
+                  background: 'none', border: 'none',
+                  borderBottom: i < Math.min(results.length, 5) - 1 ? `1px solid ${BORDER}` : 'none',
+                  cursor: 'pointer', fontFamily: FONT_BODY,
+                }}
+              >
+                <p style={{ fontSize: 14, fontWeight: 600, color: NIGHT, margin: '0 0 2px' }}>{r.name}</p>
+                <p style={{ fontSize: 12, color: MUTED, margin: 0 }}>
+                  {r.city}{r.city && r.naf_label ? ' · ' : ''}{r.naf_label}
+                  {r.siret && <span style={{ marginLeft: 8, color: SUBTLE }}>SIRET {r.siret}</span>}
+                  {!r.siret && r.siren && <span style={{ marginLeft: 8, color: SUBTLE }}>SIREN {r.siren}</span>}
+                </p>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Entreprise sélectionnée */}
+        {selected && (
+          <div style={{ background: LAV, border: `1px solid ${LAV2}`, borderRadius: R_MD, padding: '12px 14px', marginBottom: 16 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: VIOLET, margin: '0 0 2px' }}>Entreprise sélectionnée</p>
+            <p style={{ fontSize: 14, fontWeight: 600, color: NIGHT, margin: '0 0 2px' }}>{selected.name}</p>
+            {selected.naf_label && <p style={{ fontSize: 12, color: MUTED, margin: 0 }}>{selected.naf_label}{selected.city ? ` · ${selected.city}` : ''}</p>}
+          </div>
+        )}
+
+        {/* Bouton continuer */}
+        <button
+          onClick={handleNext}
+          disabled={!selected && !manual}
+          style={{
+            width: '100%', padding: '14px', borderRadius: R_MD, border: 'none',
+            background: (selected || manual) ? GRAD : BORDER,
+            color: (selected || manual) ? '#fff' : MUTED,
+            fontSize: 15, fontWeight: 600, cursor: (selected || manual) ? 'pointer' : 'not-allowed',
+            fontFamily: FONT_BODY, marginBottom: 12,
+            boxShadow: (selected || manual) ? '0 4px 16px rgba(200,57,154,0.28)' : 'none',
+          }}
+        >Continuer</button>
+
+        {/* Lien saisie manuelle */}
+        {!selected && !manual && (
+          <button
+            onClick={() => { setManual(true) }}
+            style={{ background: 'none', border: 'none', fontSize: 13, color: MUTED, cursor: 'pointer', fontFamily: FONT_BODY, textDecoration: 'underline', padding: 0 }}
+          >
+            Mon entreprise n'apparaît pas — saisir manuellement
           </button>
         )}
+
+        {/* Champ manuel */}
+        {manual && !selected && (
+          <div style={{ marginTop: 8 }}>
+            <input
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Nom de votre entreprise"
+              style={{ ...inputStyle, marginBottom: 8 }}
+              autoFocus
+            />
+            <button
+              onClick={handleNext}
+              disabled={!query.trim()}
+              style={{
+                width: '100%', padding: '14px', borderRadius: R_MD, border: 'none',
+                background: query.trim() ? GRAD : BORDER,
+                color: query.trim() ? '#fff' : MUTED,
+                fontSize: 15, fontWeight: 600, cursor: query.trim() ? 'pointer' : 'not-allowed',
+                fontFamily: FONT_BODY, boxShadow: query.trim() ? '0 4px 16px rgba(200,57,154,0.28)' : 'none',
+              }}
+            >Continuer avec ce nom</button>
+          </div>
+        )}
+
+        <TrustCompact />
       </div>
-      <TrustCompact />
     </StepWrapper>
   )
 }

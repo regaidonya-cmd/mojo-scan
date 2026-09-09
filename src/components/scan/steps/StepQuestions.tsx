@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import type { DiagnosticState, Question } from '@/types'
+import { NIGHT, VIOLET, FUCHSIA, MUTED, BORDER, LAV, GRAD, GRAD_SOFT, R_MD, FONT_BODY } from '@/lib/design/tokens'
 import { StepWrapper } from '../StepWrapper'
 import { getQuestionsForBranch } from '@/lib/scoring/questions'
 import { detectBranch } from '@/lib/scoring/engine'
@@ -13,8 +14,8 @@ interface Props {
   update: (patch: Partial<DiagnosticState>) => void
 }
 
-const GRAD = 'linear-gradient(135deg, #6B35B8, #C8399A)'
-const GRAD_LIGHT = 'linear-gradient(135deg, rgba(107,53,184,0.08), rgba(200,57,154,0.08))'
+
+
 
 export function StepQuestions({ state, next, update }: Props) {
   const branch = state.branch ?? detectBranch(state.answers)
@@ -36,7 +37,7 @@ export function StepQuestions({ state, next, update }: Props) {
   const answer = current ? state.answers[current.code] : undefined
 
   if (questions.length === 0) {
-    return <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Chargement…</div>
+    return <div style={{ padding: 40, textAlign: 'center', color: MUTED }}>Chargement…</div>
   }
 
   if (!current) return null
@@ -56,10 +57,10 @@ export function StepQuestions({ state, next, update }: Props) {
   return (
     <StepWrapper title={current.text} subtitle={current.hint}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '8px 0 20px' }}>
-        <span style={{ fontSize: 12, color: '#A09BB8' }}>Question {qIdx + 1} sur {questions.length}</span>
+        <span style={{ fontSize: 12, color: '#A09BB8'  /* SUBTLE */ }}>Question {qIdx + 1} sur {questions.length}</span>
         <div style={{ display: 'flex', gap: 4 }}>
           {questions.map((_: any, i: number) => (
-            <div key={i} style={{ width: i === qIdx ? 20 : 6, height: 6, borderRadius: 3, background: i <= qIdx ? 'linear-gradient(135deg, #6B35B8, #C8399A)' : '#EDEAF5', transition: 'all 0.3s' }} />
+            <div key={i} style={{ width: i === qIdx ? 20 : 6, height: 6, borderRadius: 3, background: i <= qIdx ? GRAD : BORDER, transition: 'all 0.3s' }} />
           ))}
         </div>
       </div>
@@ -73,10 +74,10 @@ export function StepQuestions({ state, next, update }: Props) {
               onClick={() => handleSelect(opt.value)}
               style={{
                 width: '100%', textAlign: 'left',
-                padding: '13px 16px', borderRadius: 'var(--r-md)',
-                border: isSel ? '2px solid #C8399A' : '1.5px solid #E5E7EB',
-                background: isSel ? GRAD_LIGHT : '#fff',
-                color: isSel ? 'var(--night)' : 'var(--text)',
+                padding: '13px 16px', borderRadius: R_MD,
+                border: isSel ? `2px solid ${FUCHSIA}` : `1.5px solid ${BORDER}`,
+                background: isSel ? GRAD_SOFT : '#fff',
+                color: isSel ? NIGHT : '#111020',
                 fontSize: 14, fontWeight: isSel ? 700 : 500,
                 cursor: 'pointer', fontFamily: 'inherit',
                 transition: 'all 0.15s',
@@ -91,7 +92,7 @@ export function StepQuestions({ state, next, update }: Props) {
       {qIdx > 0 && (
         <button
           onClick={() => setQIdx(i => i - 1)}
-          style={{ marginTop: 16, fontSize: 13, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+          style={{ marginTop: 16, fontSize: 13, color: MUTED, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
         >
           ← Question précédente
         </button>

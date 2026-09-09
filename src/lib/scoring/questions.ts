@@ -34,6 +34,22 @@ export const QUESTIONS: Question[] = [
     ],
   },
 
+
+
+  // ── P8 — Statut juridique bénéficiaire ───────────────────────
+  // Question simple, compréhensible par une TPE
+  // Utilisée uniquement par le moteur de financement
+  {
+    code: 'P8',
+    text: 'Quel est votre statut professionnel ?',
+    hint: "Cette information nous permet d'identifier les dispositifs de financement auxquels vous pouvez prétendre.",
+    type: 'single' as const,
+    options: [
+      { value: 'tns',     label: 'Indépendant / Gérant non-salarié (TNS)', score: 0 },
+      { value: 'salarie', label: "Salarié de l'entreprise",               score: 0 },
+      { value: 'other',   label: 'Autre statut',                            score: 0 },
+    ],
+  },
   // ── P3 — Objectif (multi-select) ──────────────────────────────
   // v2 : libellés orientés résultat (gain > action)
   {

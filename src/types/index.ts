@@ -83,12 +83,36 @@ export interface Priority {
 }
 
 // ── Financement ────────────────────────────────────────────────
+// ── OPCO — rattachement de l'entreprise ──────────────────────
+export interface OpcoResult {
+  opco_name: string
+  opco_status: 'identified' | 'probable' | 'to_confirm' | 'unknown'
+  opco_confidence: 'high' | 'medium' | 'low'
+  opco_source: 'siret_api' | 'naf_orientation' | 'unknown'
+  opco_note: string
+}
+
+// ── Financeur — dispositif du bénéficiaire ────────────────────
+export interface FundingBody {
+  funding_body: string
+  funding_status: 'identified' | 'probable' | 'to_confirm' | 'unknown'
+  funding_confidence: 'high' | 'medium' | 'low'
+  funding_reason: string
+  funding_note: string
+}
+
+// ── Résultat financement complet ──────────────────────────────
 export interface FundingResult {
+  // Champs legacy (conservés pour compatibilité route submit)
   funder: string
   coverage_label: string
-  coverage_pct: number
-  confidence: 'high' | 'medium' | 'low'
-  note?: string
+  // Nouveaux champs structurés
+  opco?: OpcoResult
+  funding_body?: FundingBody
+  // Texte affiché au prospect — jamais de % absolu
+  prospect_text: string
+  // Version NAF utilisée
+  naf_version: 'NAF_REV2_2008'
 }
 
 // ── Catalogue ──────────────────────────────────────────────────
@@ -130,7 +154,7 @@ export interface DiagnosticState {
   recommendations?: Recommendation[]
   funding?: FundingResult[]
   // Capture
-  contact?: { firstname: string; email: string; phone?: string }
+  contact?: { firstname: string; lastname?: string; email: string; phone?: string; statut_juridique?: string }
   consentDiag: boolean
   consentMarketing: boolean
   // Report
