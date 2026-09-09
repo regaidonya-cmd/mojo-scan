@@ -47,7 +47,7 @@ export function StepProfile({ state, next, update }: Props) {
   )
 
   return (
-    <StepWrapper title="Parlez-nous de vous" subtitle="Pour personnaliser votre diagnostic selon votre situation.">
+    <StepWrapper title="Quelques questions rapides" subtitle="Pour adapter vos recommandations à votre profil.">
       <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
 
         <div>

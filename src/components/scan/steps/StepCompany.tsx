@@ -67,7 +67,7 @@ export function StepCompany({ state, next, update }: Props) {
   return (
     <StepWrapper
       title="Commençons par votre entreprise"
-      subtitle="Recherchez votre entreprise — nous récupérons automatiquement vos informations."
+      subtitle="Recherchez votre entreprise pour personnaliser votre diagnostic."
     >
       <div style={{ marginTop: 24, position: 'relative' }}>
         <input

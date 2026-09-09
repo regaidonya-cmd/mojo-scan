@@ -90,7 +90,7 @@ export function StepCapture({ state, next, update }: Props) {
   return (
     <StepWrapper
       title="Où envoyons-nous votre diagnostic ?"
-      subtitle="Votre rapport complet avec recommandations et simulation de financement."
+      subtitle="Recevez immédiatement votre rapport personnalisé avec vos recommandations prioritaires."
     >
       <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
@@ -137,7 +137,7 @@ export function StepCapture({ state, next, update }: Props) {
             Téléphone <span style={{ fontWeight: 400, color: '#9CA3AF' }}>(recommandé)</span>
           </label>
           <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-            placeholder="06 XX XX XX XX" style={inputStyle(false)} />
+            placeholder="Votre numéro de téléphone" style={inputStyle(false)} />
         </div>
 
         {/* Consentements — séparés clairement */}

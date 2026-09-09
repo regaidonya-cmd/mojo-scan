@@ -23,9 +23,11 @@ export function StepObjective({ state, next, update }: Props) {
   )
 
   const toggle = (value: string) => {
-    setSelected(prev =>
-      prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]
-    )
+    setSelected(prev => {
+      if (prev.includes(value)) return prev.filter(v => v !== value)
+      if (prev.length >= 3) return prev  // max 3 sélections
+      return [...prev, value]
+    })
   }
 
   const handleNext = () => {
@@ -95,7 +97,7 @@ export function StepObjective({ state, next, update }: Props) {
         }}
       >
         {selected.length === 0
-          ? 'Sélectionnez au moins un objectif'
+          ? 'Sélectionnez votre objectif principal'
           : `Continuer avec ${selected.length} objectif${selected.length > 1 ? 's' : ''} →`}
       </button>
     </StepWrapper>
