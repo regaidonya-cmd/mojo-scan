@@ -89,7 +89,7 @@ const NAF_OPCO_ORIENTATION: Record<string, { opco: string; note: string }> = {
 }
 
 // ── Préfixes NAF → dispositif bénéficiaire ────────────────────
-const FIF_PL_NAF  = ['69','70','71','72','73','74','75','85','86','87','88']
+const FIF_PL_NAF  = ['69','70','71','72','73','74','75','86','87','88'] // '85' retiré : enseignement privé → AGEFICE
 const FAFCEA_NAF  = ['41','42','43','10','11','12','13','14','16','17','18',
                      '23','24','25','26','27','28','29','30','31','32']
 const AGEFICE_EXCL = [...FIF_PL_NAF, ...FAFCEA_NAF]
