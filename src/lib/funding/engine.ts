@@ -234,5 +234,5 @@ function buildProspectText(opco: OpcoResult, fb: FundingBody): string {
     ? 'un financement partiel ou total peut être possible selon votre statut et les critères en vigueur'
     : `un financement via ${fb.funding_body} peut être possible selon votre situation`
 
-  return `Sur la base des éléments renseignés, ${opcoStr}. ${fbStr}. MOJO ACADÉMIE vous accompagne dans la vérification et la constitution de votre dossier lors de l'échange gratuit.`
+  return `Sur la base des éléments renseignés, ${opcoStr}. ${fbStr.charAt(0).toUpperCase() + fbStr.slice(1)}. MOJO ACADÉMIE vous accompagne dans la vérification et la constitution de votre dossier lors de l'échange gratuit.`
 }
