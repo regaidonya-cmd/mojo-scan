@@ -100,7 +100,7 @@ export const QUESTIONS: Question[] = [
   {
     code: 'P7',
     text: 'Si un reste à charge est demandé, comment vous positionnez-vous ?',
-    hint: 'La plupart de nos formations sont finançables à 80-100% selon les dispositifs.',
+    hint: 'Une prise en charge partielle ou totale peut être possible selon votre statut, votre entreprise et les critères du financeur.',
     type: 'single',
     options: [
       { value: 'yes',     label: 'Je peux compléter si le montant est raisonnable', score: 5 },

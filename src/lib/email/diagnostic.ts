@@ -93,7 +93,7 @@ function buildEmailHtml(d: DiagnosticEmailData): string {
       <p style="font-size:10px;font-weight:700;color:#16A34A;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 6px;font-family:Arial,sans-serif">Financement potentiel</p>
       ${funderBlock}
       <p style="font-size:12px;color:#166534;line-height:1.55;margin:0;font-family:Arial,sans-serif">
-        Des solutions de financement peuvent exister selon votre situation. MOJO ACADÉMIE peut vérifier avec vous le dispositif applicable à votre dossier.
+        Une prise en charge partielle ou totale peut être possible selon votre statut, votre entreprise et les critères du financeur. MOJO ACADÉMIE peut vérifier avec vous le dispositif applicable.
       </p>
     </div>
   </td></tr>

@@ -139,7 +139,7 @@ function FundingBlock({ funding }: { funding: any[] }) {
       <div style={{ background: '#F0FFF4', border: '1.5px solid #BBF7D0', borderRadius: 16, padding: '18px', marginBottom: 16 }}>
         <p style={{ fontSize: 10, fontWeight: 700, color: '#16A34A', letterSpacing: '0.08em', textTransform: 'uppercase' as const, margin: '0 0 8px' }}>Financement possible</p>
         <p style={{ fontSize: 13, color: '#166534', lineHeight: 1.6, margin: '0 0 10px' }}>
-          Des solutions de financement peuvent exister selon votre situation. MOJO ACADÉMIE est certifiée Qualiopi et peut vous aider à identifier votre OPCO ou fonds de formation et à vérifier les possibilités de prise en charge applicables à votre dossier.
+          Une prise en charge partielle ou totale peut être possible selon votre statut, votre entreprise et les critères du financeur. MOJO ACADÉMIE peut vous aider à identifier le dispositif applicable à votre dossier.
         </p>
       </div>
     )
@@ -155,7 +155,7 @@ function FundingBlock({ funding }: { funding: any[] }) {
         {best.funder}
       </p>
       <p style={{ fontSize: 13, color: '#166534', lineHeight: 1.6, margin: '0 0 12px' }}>
-        Selon votre situation et les critères en vigueur, votre formation peut potentiellement bénéficier d'une prise en charge. MOJO ACADÉMIE peut vérifier avec vous le dispositif correspondant à votre dossier.
+        Une prise en charge partielle ou totale peut être possible selon votre statut, votre entreprise et les critères du financeur. MOJO ACADÉMIE peut vérifier avec vous le dispositif applicable.
       </p>
     </div>
   )
