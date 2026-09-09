@@ -55,8 +55,13 @@ export function StepQuestions({ state, next, update }: Props) {
 
   return (
     <StepWrapper title={current.text} subtitle={current.hint}>
-      <div style={{ fontSize: 12, color: 'var(--muted)', margin: '8px 0 20px' }}>
-        Question {qIdx + 1} sur {questions.length}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '8px 0 20px' }}>
+        <span style={{ fontSize: 12, color: '#A09BB8' }}>Question {qIdx + 1} sur {questions.length}</span>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {questions.map((_: any, i: number) => (
+            <div key={i} style={{ width: i === qIdx ? 20 : 6, height: 6, borderRadius: 3, background: i <= qIdx ? 'linear-gradient(135deg, #6B35B8, #C8399A)' : '#EDEAF5', transition: 'all 0.3s' }} />
+          ))}
+        </div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
