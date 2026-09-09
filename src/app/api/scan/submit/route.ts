@@ -5,7 +5,7 @@ import { computeRecommendations } from '@/lib/scoring/modules'
 import { computeFunding } from '@/lib/funding/engine'
 import { ENGINE_VERSION } from '@/lib/scoring/version'
 import { syncContactBrevo } from '@/lib/brevo/sync'
-import { sendHotLeadAlert } from '@/lib/email/hot-lead'
+import { sendLeadAlert } from '@/lib/email/hot-lead'
 import { z } from 'zod'
 
 const SubmitSchema = z.object({
@@ -210,20 +210,24 @@ export async function POST(req: NextRequest) {
       properties: { mode: data.mode, branch, lead_score: leadScore.total },
     })
 
-    // ── Alerte HOT lead — non bloquant ────────────────────────
-    if (data.contact?.email && leadScore.total >= 50) {
-      sendHotLeadAlert({
+    // ── Alerte scan — envoyée sur tous les diagnostics ─────────
+    if (data.contact?.email) {
+      sendLeadAlert({
         firstname:     data.contact.firstname,
         lastname:      data.contact.lastname,
         email:         data.contact.email,
         phone:         data.contact.phone,
         company:       data.company?.name,
+        naf_label:     data.company?.naf_label,
+        city:          data.company?.city,
         lead_score:    leadScore.total,
-        priority:      priorities[0]?.label ?? '',
+        objective:     priorities[0]?.label ?? answersMap['P3'] ?? '',
         formation_1:   recommendations[0]?.titre ?? '',
+        opco:          recommendations[0] ? (computeFunding(data.company, answersMap)[0]?.opco?.opco_name) : undefined,
+        financeur:     recommendations[0] ? (computeFunding(data.company, answersMap)[0]?.funding_body?.funding_body) : undefined,
         diagnostic_id: diag.id,
         report_url:    reportUrl,
-      }).catch(e => console.error('[HOT LEAD] Exception:', e))
+      }).catch(e => console.error('[Alert] Exception:', e))
     }
 
     // ── Brevo — uniquement si consentement marketing ───────────
