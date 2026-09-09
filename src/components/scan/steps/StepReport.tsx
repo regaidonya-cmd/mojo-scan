@@ -35,7 +35,9 @@ function buildWhyFormation(rec: any, answers: Record<string, string>): string {
 
   const MAP: Record<string, string> = {
     'PROG-001': `Votre diagnostic montre que vous n'apparaissez pas suffisamment dans les recherches locales. Un travail structuré sur le référencement local peut changer rapidement votre visibilité auprès des prospects qui cherchent votre activité sur Google.`,
-    'PROG-002': a2 === 'no'
+    'PROG-002': answers['P3']?.includes('organisation')
+      ? `Même si votre priorité est d'améliorer votre organisation, votre diagnostic révèle une urgence plus immédiate : votre présence sur Google est insuffisante et représente un manque à gagner direct. Commencer par optimiser votre fiche Google Business Profile vous apportera des résultats visibles en quelques semaines, avant de travailler votre organisation interne.`
+      : a2 === 'no'
       ? `Vous n'avez pas encore de fiche Google Business Profile — c'est votre priorité absolue. C'est le premier endroit où vos prospects vous cherchent.`
       : `Votre fiche Google existe mais n'est pas optimisée. ${a3 === 'none' || a3 === 'lt20' ? 'Vous avez très peu d\'avis clients, ce qui limite votre crédibilité locale.' : 'Il reste des leviers importants à activer pour maximiser votre visibilité.'}`,
     'PROG-003': a4 === 'rarely'
