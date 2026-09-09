@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { DiagnosticState } from '@/types'
 import { StepWrapper } from '../StepWrapper'
+import { DonyaBlock } from '../DonyaBlock'
 
 interface Props {
   state: DiagnosticState
@@ -177,6 +178,12 @@ export function StepCapture({ state, next, update }: Props) {
             ⚠️ {error}
           </div>
         )}
+
+        {/* Donya — réassurance humaine avant soumission */}
+        <DonyaBlock
+          calendlyUrl={process.env.NEXT_PUBLIC_CALENDLY_URL ?? 'https://calendly.com/regai-donya/diagnostic-digital-offert-10-min-passez-a-l-action'}
+          variant="capture"
+        />
 
         {/* Bouton */}
         <button

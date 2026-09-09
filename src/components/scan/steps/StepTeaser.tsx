@@ -1,6 +1,7 @@
 'use client'
 
 import type { DiagnosticState } from '@/types'
+import { DonyaBlock } from '../DonyaBlock'
 
 const NIGHT   = '#1A186E'
 const VIOLET  = '#6B35B8'
@@ -131,18 +132,11 @@ export function StepTeaser({ state, next }: Props) {
         Voir mon rapport complet →
       </button>
 
-      {/* CTA secondaire — RDV direct depuis le teaser */}
-      <a
-        href={calendlyUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{ display: 'block', width: '100%', padding: '13px', borderRadius: 12, border: '1.5px solid #EDEAF5', background: '#fff', color: MUTED, fontSize: 13, fontWeight: 600, textAlign: 'center' as const, textDecoration: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const }}
-      >
-        📅 Échanger directement avec un conseiller
-      </a>
+      {/* Bloc Donya — réassurance humaine avant CTA RDV */}
+      <DonyaBlock calendlyUrl={calendlyUrl} variant="teaser" />
 
-      <p style={{ fontSize: 11, textAlign: 'center' as const, color: '#A09BB8', margin: '10px 0 0' }}>
-        Gratuit · Sans engagement · Résultats immédiats
+      <p style={{ fontSize: 11, textAlign: 'center' as const, color: '#A09BB8', margin: '4px 0 0' }}>
+        Résultats immédiats · Sans engagement
       </p>
     </div>
   )

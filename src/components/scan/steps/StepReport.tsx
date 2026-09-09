@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { DiagnosticState } from '@/types'
 import { PROGRAMMES } from '@/lib/scoring/catalog'
+import { DonyaBlock } from '../DonyaBlock'
 
 interface Props {
   state: DiagnosticState
@@ -360,32 +361,14 @@ export function StepReport({ state }: Props) {
 
       {/* I. CLOSING FORT — P1 : bénéfice, pas "MOJO" */}
       <div style={{ background: NIGHT, borderRadius: 20, padding: '24px 20px', marginBottom: 12 }}>
-        <p style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: '1.1rem', fontWeight: 800, color: '#fff', margin: '0 0 8px', lineHeight: 1.25 }}>
-          Passez de votre diagnostic à un plan d'action concret
-        </p>
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', margin: '0 0 16px', lineHeight: 1.55 }}>
-          En 20 minutes, nous validons ensemble vos priorités, la formation la plus adaptée et les possibilités de financement selon votre situation.
-        </p>
+        {/* Bloc Donya — réassurance humaine + CTA RDV */}
+        <DonyaBlock calendlyUrl={calendlyUrl} variant="report" />
 
-        {/* Réassurance avant CTA — P2 */}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const, marginBottom: 18 }}>
-          {['Certifié Qualiopi', 'Gratuit · 20 min', 'Sans engagement'].map((t, i) => (
-            <span key={i} style={{ fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.85)' }}>✓ {t}</span>
-          ))}
-        </div>
-
-        {/* CTA bénéfice — P1 */}
-        <a href={calendlyUrl} target="_blank" rel="noopener noreferrer"
-          style={{ display: 'block', width: '100%', padding: '15px', borderRadius: 12, background: GRAD, color: '#fff', fontSize: 14, fontWeight: 700, textDecoration: 'none', textAlign: 'center' as const, marginBottom: 10, boxShadow: '0 8px 24px rgba(200,57,154,0.45)', boxSizing: 'border-box' as const }}
-          onClick={() => { fetch('/api/scan/event', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ event_type: 'calendly_clicked', diagnostic_id: state.id }) }) }}
-        >
-          Vérifier mon plan d'action et mon financement →
-        </a>
-
+        {/* CTA email secondaire */}
         <button onClick={handleSendEmail} disabled={emailSent || emailLoading}
           style={{ width: '100%', padding: '11px', borderRadius: 12, border: '1.5px solid rgba(255,255,255,0.15)', background: 'transparent', color: emailSent ? '#4ADE80' : 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600, cursor: emailSent ? 'default' : 'pointer', fontFamily: 'inherit', boxSizing: 'border-box' as const }}
         >
-          {emailSent ? '✓ Rapport envoyé par email !' : emailLoading ? 'Envoi…' : '📧 Recevoir ce rapport par email'}
+          {emailSent ? '✓ Rapport envoyé par email !' : emailLoading ? 'Envoi…' : 'Recevoir ce rapport par email'}
         </button>
       </div>
 
