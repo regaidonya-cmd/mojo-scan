@@ -1,0 +1,13 @@
+{
+  "name": "mojo-sales-p02b-collecte-sirene",
+  "version": "0.1.0",
+  "private": true,
+  "description": "P0.2B — Collecte SIRENE (near_point) lecture seule, aucune écriture Supabase, aucun service payant.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "collect": "node index.js",
+    "test": "node test/pipeline.test.js && node test/json-import.test.js && node test/live-api-coherence.test.js"
+  }
+}
