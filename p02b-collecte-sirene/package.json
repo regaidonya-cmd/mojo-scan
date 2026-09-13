@@ -8,6 +8,6 @@
   },
   "scripts": {
     "collect": "node index.js",
-    "test": "node test/pipeline.test.js && node test/json-import.test.js && node test/live-api-coherence.test.js"
+    "test": "node test/pipeline.test.js && node test/json-import.test.js && node test/live-api-coherence.test.js && node test/report.test.js"
   }
 }
