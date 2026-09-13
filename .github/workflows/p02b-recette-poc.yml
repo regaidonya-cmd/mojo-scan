@@ -1,0 +1,97 @@
+name: P0.2B - Recette POC Diagnostiqueurs (collecte SIRENE)
+
+# Déclenchement MANUEL uniquement pour cette étape (pas de cron récurrent).
+on:
+  workflow_dispatch: {}
+
+jobs:
+  recette-p02b:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        # Adapter ce chemin si le dossier p02b-collecte-sirene est placé
+        # ailleurs dans le dépôt.
+        working-directory: p02b-collecte-sirene
+
+    steps:
+      - name: Checkout du dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js (>=18)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Étape bloquante : si un test échoue, le job s'arrête ici et la
+      # recette réelle ci-dessous ne se lance PAS.
+      - name: Tests (obligatoires avant toute collecte réelle)
+        run: npm test
+
+      # Recette réelle, paramètres POC. Aucune clé API, aucun service
+      # payant, aucune écriture Supabase, aucun enrichissement ADI.
+      - name: Recette réelle P0.2B (LIVE_API)
+        env:
+          MODE: LIVE_API
+          CENTER_LAT: '48.7333'
+          CENTER_LONG: '2.4333'
+          RADIUS_KM: '20'
+          ACTIVITE_CODES: '71.20B'
+          ACTIVITE_NOMENCLATURE: naf2008
+          MAX_PAGES: '200'
+          THROTTLE_MS: '250'
+        run: node index.js
+        continue-on-error: true # le rapport documente lui-même toute anomalie ; on veut toujours publier l'artifact et le résumé
+
+      - name: Résumé dans l'onglet Summary de GitHub Actions
+        if: always()
+        run: |
+          node -e '
+            const fs = require("fs");
+            const path = require("path");
+            const dir = path.join(process.cwd(), "output");
+            if (!fs.existsSync(dir)) {
+              fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, "## Résultat recette P0.2B\n\nAucun rapport généré (voir logs de l'\''étape précédente).\n");
+              process.exit(0);
+            }
+            const fichiers = fs.readdirSync(dir).filter(f => f.endsWith(".json")).sort();
+            if (fichiers.length === 0) {
+              fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, "## Résultat recette P0.2B\n\nAucun rapport généré (voir logs de l'\''étape précédente).\n");
+              process.exit(0);
+            }
+            const rapport = JSON.parse(fs.readFileSync(path.join(dir, fichiers[fichiers.length - 1]), "utf8"));
+            const f = rapport.funnel;
+            const e = rapport.echantillon;
+            const lignes = [];
+            lignes.push("## Résultat recette P0.2B — " + rapport.recette);
+            lignes.push("");
+            lignes.push("| Indicateur | Valeur |");
+            lignes.push("|---|---|");
+            lignes.push("| **Statut échantillon** | **" + e.statut + "** |");
+            lignes.push("| total_results annoncé par l'\''API | " + e.total_results_annonce_api + " |");
+            lignes.push("| total_pages annoncé par l'\''API | " + e.total_pages_annonce_api + " |");
+            lignes.push("| Pages parcourues | " + f.pages_reellement_parcourues + " |");
+            lignes.push("| SIRET uniques | " + f.siret_uniques + " |");
+            lignes.push("| SIREN uniques | " + f.siren_uniques + " |");
+            lignes.push("| CIBLE | " + f.repartition_fit_cible.CIBLE + " |");
+            lignes.push("| INCONNU | " + f.repartition_fit_cible.INCONNU + " |");
+            lignes.push("| HORS_CIBLE | " + f.repartition_fit_cible.HORS_CIBLE + " |");
+            lignes.push("| Anomalies | " + rapport.anomalies.length + " |");
+            lignes.push("");
+            if (e.avertissement) {
+              lignes.push("> ⚠️ " + e.avertissement);
+            } else if (e.statut === "COMPLET") {
+              lignes.push("> ✅ Échantillon complet : toutes les pages annoncées par l'\''API ont été analysées.");
+            }
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lignes.join("\n") + "\n");
+          '
+
+      # Publication en artifact UNIQUEMENT — aucun commit automatique du
+      # rapport dans le dépôt.
+      - name: Publier le rapport JSON comme artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-p02b-${{ github.run_id }}
+          path: p02b-collecte-sirene/output/*.json
+          retention-days: 30
+          if-no-files-found: warn
