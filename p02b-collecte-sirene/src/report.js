@@ -89,6 +89,31 @@ function construireRapport(resultatCollecte) {
       siren_uniques: prospects.length,
       repartition_fit_cible: repartitionFitCible,
     },
+    // Restitution détaillée des 1494 SIREN (ou équivalent) — nécessaire pour
+    // que P0.2C puisse consommer le rapport. Champs conservés tels que
+    // déjà calculés en interne par pipeline.js, aucune donnée recalculée.
+    prospects: prospects.map((p) => ({
+      siren: p.siren,
+      nom_complet: p.nom_complet,
+      tranche_effectif_salarie: p.tranche_effectif_salarie,
+      categorie_entreprise: p.categorie_entreprise,
+      nombre_etablissements_ouverts: p.nombre_etablissements_ouverts,
+      fit_cible: p.fit_cible,
+      fit_cible_raison: p.fit_cible_raison,
+      distance_min_km: p.distance_min_km,
+      etablissements_actifs_locaux: p.etablissements_actifs_locaux.map((e) => ({
+        siret: e.siret,
+        adresse: e.adresse,
+        code_postal: e.code_postal,
+        ville: e.ville,
+        latitude: e.latitude,
+        longitude: e.longitude,
+        distance_km: e.distance_km,
+        siege: e.siege,
+        activite_principale: e.activite_principale,
+        activite_principale_naf25: e.activite_principale_naf25,
+      })),
+    })),
     rendement_par_page: rendementParPage,
     exemples_hors_cible: exemplesHorsCible,
     exemples_cible_ou_inconnu: exemplesCibleOuInconnu,
