@@ -2,11 +2,6 @@ import Link from 'next/link'
 import { DS } from '@/lib/ds/tokens'
 import type { ProspectViewModel } from '@/lib/priority/fetch-real'
 
-const SENSIBILITE_LABEL: Record<string, string> = {
-  UTILISABLE_DANS_ACCROCHE: 'Utilisable dans l\'accroche',
-  CONTEXTE_INTERNE: 'Contexte interne — ne pas utiliser tel quel dans l\'accroche',
-  A_VERIFIER: 'Information à vérifier',
-}
 const PIPELINE_LABEL: Record<string, string> = {
   A_CONTACTER: 'À contacter', EN_DISCUSSION: 'En discussion', RDV: 'RDV',
   PROPOSITION: 'Proposition', GAGNE: 'Gagné', PERDU: 'Perdu',
@@ -49,22 +44,32 @@ export function FicheProspectView({ vm }: { vm: ProspectViewModel }) {
         <Row label="Armement" value={business.armement} />
       </Section>
 
-      {/* Pourquoi maintenant */}
-      <Section title="Pourquoi maintenant">
+      {/* Pourquoi maintenant / ce prospect — wording conditionné à la priorité réelle */}
+      <Section title={business.raisonLabel}>
         <p style={{ fontSize: 14, color: DS.text, lineHeight: 1.5, margin: 0 }}>{business.raisonMaintenant}</p>
       </Section>
 
-      {/* Fait principal + sensibilité + source */}
-      <Section title="Fait commercial">
-        {business.faitPrincipal ? (
+      {/* FAIT OBSERVÉ — ce que nous savons réellement, sourcé */}
+      <Section title="Fait observé">
+        {business.faitPrincipal && business.faitPrincipal.sensibilite === 'UTILISABLE_DANS_ACCROCHE' ? (
           <>
-            <p style={{ fontSize: 14, color: DS.text, margin: '0 0 8px', lineHeight: 1.5 }}>{business.faitPrincipal.texte || '(sans texte spécifique)'}</p>
-            <Row label="Sensibilité" value={SENSIBILITE_LABEL[business.faitPrincipal.sensibilite]} />
+            <p style={{ fontSize: 14, color: DS.text, margin: '0 0 8px', lineHeight: 1.5 }}>
+              {business.faitPrincipal.texteAffichable || '(sans texte spécifique)'}
+            </p>
             <Row label="Source" value={business.faitPrincipal.source} />
           </>
         ) : (
-          <p style={{ fontSize: 13.5, color: DS.muted, fontStyle: 'italic', margin: 0 }}>Aucun fait commercial différenciant identifié à ce jour.</p>
+          <p style={{ fontSize: 13.5, color: DS.muted, fontStyle: 'italic', margin: 0 }}>
+            Aucun fait commercial différenciant identifié à ce jour.
+          </p>
         )}
+      </Section>
+
+      {/* ANGLE D'APPROCHE SUGGÉRÉ — toujours présenté comme suggestion, jamais un fait */}
+      <Section title="Angle d'approche suggéré">
+        <p style={{ fontSize: 13.5, color: DS.text, lineHeight: 1.5, margin: 0, fontStyle: business.armement === 'PRET' ? 'normal' : 'italic' }}>
+          {business.angleApproche}
+        </p>
       </Section>
 
       {/* Interlocuteur / contact */}
@@ -87,23 +92,27 @@ export function FicheProspectView({ vm }: { vm: ProspectViewModel }) {
         {emailAffichable && <Row label="Email autorisé" value={emailAffichable} />}
       </Section>
 
-      {/* NBA — information, pas une action simulée */}
+      {/* NBA — lien tel: reel uniquement si telephone autorise ; sinon information seule */}
       <Section title="Prochaine action recommandée">
-        <div
-          style={{
-            display: 'inline-block',
-            padding: '10px 20px',
-            borderRadius: DS.rMd,
-            background: DS.grad,
-            color: DS.white,
-            fontWeight: 700,
-            fontSize: 14,
-          }}
-        >
-          {NBA_LABEL[engine.nextBestAction.type] ?? engine.nextBestAction.type}
-        </div>
+        {business.uiNba === 'CALL' && telephoneAffichable ? (
+          <a
+            href={`tel:${telephoneAffichable.replace(/\s/g, '')}`}
+            style={{
+              display: 'inline-block', padding: '10px 20px', borderRadius: DS.rMd,
+              background: DS.grad, color: DS.white, fontWeight: 700, fontSize: 14, textDecoration: 'none',
+            }}
+          >
+            Appeler {telephoneAffichable} →
+          </a>
+        ) : (
+          <div style={{ display: 'inline-block', padding: '10px 20px', borderRadius: DS.rMd, background: DS.lav, color: DS.violet, fontWeight: 700, fontSize: 14 }}>
+            {NBA_LABEL[business.uiNba] ?? business.uiNba}
+          </div>
+        )}
         <p style={{ fontSize: 12.5, color: DS.muted, marginTop: 10 }}>
-          Aucune action n'est déclenchée automatiquement depuis cette page (appel, email et qualification restent à réaliser manuellement pour cette phase).
+          {business.uiNba === 'CALL' && telephoneAffichable
+            ? "Le lien ouvre votre application téléphone — aucun appel n'est déclenché automatiquement, aucune donnée n'est écrite."
+            : "Aucune action n'est déclenchée automatiquement depuis cette page."}
         </p>
       </Section>
 

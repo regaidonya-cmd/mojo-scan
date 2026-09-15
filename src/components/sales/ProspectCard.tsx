@@ -21,7 +21,6 @@ const TEMPERATURE_LABEL: Record<string, string> = { FROID: 'Froid', TIEDE: 'Tiè
 
 export function ProspectCard({ vm }: { vm: ProspectViewModel }) {
   const { engine, business, interlocuteur, companyName, ville } = vm
-  const nbaLabel = NBA_LABEL[engine.nextBestAction.type] ?? engine.nextBestAction.type
   const isChaud = engine.temperature === 'CHAUD'
 
   return (
@@ -70,7 +69,7 @@ export function ProspectCard({ vm }: { vm: ProspectViewModel }) {
           lineHeight: 1.45,
         }}
       >
-        <span style={{ color: DS.violet, fontWeight: 700 }}>Pourquoi maintenant — </span>
+        <span style={{ color: DS.violet, fontWeight: 700 }}>{business.raisonLabel} — </span>
         {business.raisonMaintenant}
       </div>
 
@@ -106,7 +105,7 @@ export function ProspectCard({ vm }: { vm: ProspectViewModel }) {
           display: 'inline-block',
         }}
       >
-        {nbaLabel} →
+        Voir la fiche →
       </Link>
     </div>
   )

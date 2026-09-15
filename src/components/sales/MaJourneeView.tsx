@@ -67,7 +67,7 @@ export function MaJourneeView({ data }: { data: MaJourneeClassification }) {
 
       {/* À PRÉPARER — secondaire, jamais mélangé à la liste principale */}
       {aPreparer.length > 0 && (
-        <Section title="À préparer" muted>
+        <Section title={`À préparer — ${aPreparer.length}`} muted>
           <p style={{ fontSize: 13.5, color: DS.muted, margin: '0 0 12px' }}>
             {summarizeAPreparer(aPreparer)}
           </p>
@@ -85,13 +85,13 @@ export function MaJourneeView({ data }: { data: MaJourneeClassification }) {
 }
 
 function summarizeAPreparer(items: MaJourneeClassification['aPreparer']): string {
-  const qualify = items.filter((v) => v.engine.nextBestAction.type === 'QUALIFY').length
-  const enrich = items.filter((v) => v.engine.nextBestAction.type === 'ENRICH').length
+  const qualify = items.filter((v) => v.business.uiNba === 'QUALIFY').length
+  const enrich = items.filter((v) => v.business.uiNba === 'ENRICH').length
   const other = items.length - qualify - enrich
   const parts: string[] = []
-  if (qualify > 0) parts.push(`${qualify} prospect${qualify > 1 ? 's' : ''} à qualifier`)
-  if (enrich > 0) parts.push(`${enrich} nécessite${enrich > 1 ? 'nt' : ''} un enrichissement`)
-  if (other > 0) parts.push(`${other} autre${other > 1 ? 's' : ''}`)
+  if (enrich > 0) parts.push(`${enrich} à enrichir`)
+  if (qualify > 0) parts.push(`${qualify} à qualifier`)
+  if (other > 0) parts.push(`${other} en attente`)
   return parts.join(' · ')
 }
 
@@ -165,7 +165,7 @@ function PreparerRow({ vm }: { vm: MaJourneeClassification['aPreparer'][number] 
       }}
     >
       <span style={{ color: DS.text, fontWeight: 600 }}>{vm.companyName}</span>
-      <span style={{ color: DS.muted }}>{label[vm.engine.nextBestAction.type] ?? vm.engine.nextBestAction.type}</span>
+      <span style={{ color: DS.muted }}>{label[vm.business.uiNba] ?? vm.business.uiNba}</span>
     </div>
   )
 }

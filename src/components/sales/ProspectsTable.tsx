@@ -19,7 +19,7 @@ const PIPELINE_LABEL: Record<string, string> = {
 }
 const NOT_READY_RAISON: Record<string, string> = {
   QUALIFY: 'Interlocuteur à qualifier',
-  ENRICH: 'Statut à vérifier',
+  ENRICH: 'Connaissance insuffisante',
   NO_ACTION_TEMPORAIRE: 'Aucun canal exploitable',
 }
 
@@ -130,14 +130,14 @@ export function ProspectsTable({ all }: { all: ProspectViewModel[] }) {
                       {v.business.ready ? (
                         <Tag label="READY" color={DS.violet} filled />
                       ) : (
-                        <Tag label={NOT_READY_RAISON[v.engine.nextBestAction.type] ?? 'À préparer'} color={DS.subtle} />
+                        <Tag label={NOT_READY_RAISON[v.business.uiNba] ?? 'À préparer'} color={DS.subtle} />
                       )}
                     </td>
                     <td style={td}>{v.engine.priorite}</td>
-                    <td style={td}>{NBA_LABEL[v.engine.nextBestAction.type] ?? v.engine.nextBestAction.type}</td>
+                    <td style={td}>{NBA_LABEL[v.business.uiNba] ?? v.business.uiNba}</td>
                     <td style={td}>
                       <Link href={`/admin/prospects/${v.companyId}`} style={actionLinkStyle(v.business.ready)}>
-                        Voir →
+                        Voir la fiche →
                       </Link>
                     </td>
                   </tr>
@@ -157,10 +157,10 @@ export function ProspectsTable({ all }: { all: ProspectViewModel[] }) {
                   {v.ville ?? '—'} · {v.engine.potentiel} · {v.engine.temperature}
                 </div>
                 <div style={{ marginBottom: 8 }}>
-                  {v.business.ready ? <Tag label="READY" color={DS.violet} filled /> : <Tag label={NOT_READY_RAISON[v.engine.nextBestAction.type] ?? 'À préparer'} color={DS.subtle} />}
+                  {v.business.ready ? <Tag label="READY" color={DS.violet} filled /> : <Tag label={NOT_READY_RAISON[v.business.uiNba] ?? 'À préparer'} color={DS.subtle} />}
                 </div>
                 <Link href={`/admin/prospects/${v.companyId}`} style={actionLinkStyle(v.business.ready)}>
-                  Voir →
+                  Voir la fiche →
                 </Link>
               </div>
             ))}
