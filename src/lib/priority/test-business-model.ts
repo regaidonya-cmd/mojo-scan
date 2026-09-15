@@ -243,6 +243,17 @@ import { sanitizeFaitTexte, buildFaitCommercial } from './business-model'
   t('28. texteAffichable = texte (rien a retirer)', fait.texteAffichable === 'Reservation en ligne disponible sur le site officiel')
 }
 
+// 29. [FIX.4] raisonMaintenant doit utiliser texteAffichable (sanitise), jamais texte brut
+{
+  const texteBrut = 'Marche public notifie avec Client X, 5M EUR; changement de gouvernance le 01/01/2026 (Nouvel Actionnaire)'
+  const fait = buildFaitCommercial(texteBrut, 'test')
+  const input = base()
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [fait])
+  t('29. raisonMaintenant ne contient jamais la portion gouvernance', !bm.raisonMaintenant.toLowerCase().includes('gouvernance'))
+  t('29. raisonMaintenant = texteAffichable (pas le texte brut complet)', bm.raisonMaintenant === fait.texteAffichable)
+}
+
 console.log('')
 const passed = results.filter((r) => r.pass).length
 console.log(`${passed}/${results.length} tests passes`)

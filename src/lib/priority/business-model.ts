@@ -134,7 +134,7 @@ function computeRaisonMaintenant(
     return whyNow[whyNow.length - 1] || 'Signal commercial récent identifié.'
   }
   if (faitPrincipal && faitPrincipal.sensibilite === 'UTILISABLE_DANS_ACCROCHE') {
-    return faitPrincipal.texte
+    return faitPrincipal.texteAffichable
   }
   if (potentiel === 'FORT') {
     return 'Meilleur prospect disponible à travailler actuellement.'
