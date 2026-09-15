@@ -8,7 +8,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { evaluateProspect } from './engine'
-import { evaluateBusinessModel, classifySiteStatutOnly, FaitCommercial } from './business-model'
+import { evaluateBusinessModel, classifySiteStatutOnly, classifyFaitText, FaitCommercial } from './business-model'
 import type { ProspectInput, ContactMethod, CommercialPriorityResult } from './types'
 import type { BusinessModelResult } from './business-model'
 
@@ -39,36 +39,12 @@ export interface ProspectViewModel {
   emailAffichable: string | null // idem pour email
 }
 
-/**
- * P0.5C.1 §2 — En attendant la structuration durable de la sensibilité
- * (attribut jumeau 'fait_commercial_sensibilite' sur observations_entreprise,
- * non encore appliquée), cette table explicite encode les décisions déjà
- * prises via recherche réelle en P0.5B.3/P0.5B.4/P0.5C pour les entreprises
- * effectivement enrichies. Aucune décision nouvelle n'est prise ici.
- */
-const FAIT_SENSIBILITE_MAP: Record<string, 'UTILISABLE_DANS_ACCROCHE' | 'CONTEXTE_INTERNE' | 'A_VERIFIER'> = {
-  // P0.6A.1 — audit strict : seuls les faits RÉELLEMENT différenciants
-  // (détail de page observé, validation externe chiffrée, événement daté,
-  // fonctionnalité concrète, réseau/affiliation vérifiable) sont conservés.
-  // "site FOUND/AMBIGUOUS/NOT_FOUND seul" et "dirigeant+ancienneté seuls"
-  // ont été explicitement retirés (voir rapport P0.6A.1 §1).
-  '445106677': 'UTILISABLE_DANS_ACCROCHE', // BATIMO CONSEIL — page crawlée, SIREN imprimé, CTA/formulaire
-  '522727478': 'UTILISABLE_DANS_ACCROCHE', // ACAPA — activité technique spécifique
-  '829606821': 'UTILISABLE_DANS_ACCROCHE', // CENTRAL DIAG — note 5/5 chiffrée + interlocuteur nommé
-  '920589868': 'UTILISABLE_DANS_ACCROCHE', // DIAG HOME SERVICES — réseau Diagadom vérifiable
-  '500502687': 'UTILISABLE_DANS_ACCROCHE', // EXPERURBA — activité élargie réelle
-  '977501477': 'UTILISABLE_DANS_ACCROCHE', // AXM DIAG — création AXM ENERGIE datée
-  '821714102': 'UTILISABLE_DANS_ACCROCHE', // DIAG IMMO 13 — réservation en ligne (limite, conservé)
-  // Rétrogradés P0.6A.1 :
-  '452253974': 'A_VERIFIER',               // ARTWELL — site AMBIGUOUS seul
-  '809399645': 'A_VERIFIER',               // DFG DIAG — statut contradictoire (inchangé)
-  '978117653': 'CONTEXTE_INTERNE',         // DIAGOBAH — changement actionnariat (inchangé)
-  '848750931': 'CONTEXTE_INTERNE',         // DIAGPROEVO — site+dirigeant+ancienneté (inchangé)
-  // Retirés (aucun fait différenciant retenu) : DVM (902725084, NOT_FOUND seul),
-  // DIAGADOM (529262206, FOUND seul), ADBAT93 (492995261, zone+ancienneté seuls),
-  // DIAGACTION (948560602, dirigeants+zone seuls), ELPIS (480997048, dirigeant+ancienneté seuls),
-  // DIAGS EXPERTS (511217366, zone+avis non crawlé) — volontairement absents de la map.
-}
+// P0.6C-FIX.1 : la sensibilité est désormais déterminée PAR FAIT
+// (classifyFaitText, business-model.ts), plus jamais par SIREN.
+// FAIT_SENSIBILITE_MAP supprimée — elle attribuait à tort la même
+// sensibilité à toutes les observations d'une même entreprise
+// (cas DIAGOBAH : un fait CONTEXTE_INTERNE masquait un fait
+// UTILISABLE_DANS_ACCROCHE distinct de la même société).
 
 function supabaseServer() {
   return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -127,7 +103,7 @@ export async function fetchMaJourneeData(): Promise<ProspectViewModel[]> {
     .from('observations_entreprise')
     .select('company_id, attribut, valeur')
     .in('company_id', companyIds)
-    .in('attribut', ['fait_specifique', 'site_statut'])
+    .in('attribut', ['fait_specifique', 'site_statut', 'site_crawl_statut', 'site_cta', 'site_formulaire'])
 
   // ── Indexation en mémoire (pas de nouvelle requête par entreprise) ──
   const companyById = new Map((companies ?? []).map((c: any) => [c.id, c]))
@@ -168,12 +144,20 @@ export async function fetchMaJourneeData(): Promise<ProspectViewModel[]> {
 
   const faitsByCompany = new Map<string, FaitCommercial[]>()
   const siteStatutByCompany = new Map<string, string>()
+  const siteCrawlByCompany = new Map<string, { crawlStatut?: string; cta?: string; formulaire?: string }>()
   for (const obs of observations ?? []) {
     if (obs.attribut === 'site_statut') {
       siteStatutByCompany.set(obs.company_id, obs.valeur)
     }
+    if (obs.attribut === 'site_crawl_statut' || obs.attribut === 'site_cta' || obs.attribut === 'site_formulaire') {
+      const cur = siteCrawlByCompany.get(obs.company_id) ?? {}
+      if (obs.attribut === 'site_crawl_statut') cur.crawlStatut = obs.valeur
+      if (obs.attribut === 'site_cta') cur.cta = obs.valeur
+      if (obs.attribut === 'site_formulaire') cur.formulaire = obs.valeur
+      siteCrawlByCompany.set(obs.company_id, cur)
+    }
     if (obs.attribut === 'fait_specifique' && obs.valeur && obs.valeur !== 'aucun') {
-      const sensibilite = FAIT_SENSIBILITE_MAP[companyById.get(obs.company_id)?.siren] ?? 'A_VERIFIER'
+      const sensibilite = classifyFaitText(obs.valeur)
       const arr = faitsByCompany.get(obs.company_id) ?? []
       arr.push({ texte: obs.valeur, sensibilite, source: 'observation P0.4/P0.5' })
       faitsByCompany.set(obs.company_id, arr)
@@ -249,7 +233,11 @@ export async function fetchMaJourneeData(): Promise<ProspectViewModel[]> {
     }
 
     const engineResult = evaluateProspect(input)
-    const business = evaluateBusinessModel(input, engineResult, faits)
+    // P0.6C-FIX.1 : un crawl RÉUSSI rehausse CONNAISSANCE (preuve technique
+    // fiable, page réellement visitée), mais n'entre JAMAIS dans le calcul
+    // d'ARMEMENT/READY — CTA/formulaire seuls restent non différenciants.
+    const hasVerifiedSiteContent = siteCrawlByCompany.get(companyId)?.crawlStatut === 'CRAWL_REUSSI'
+    const business = evaluateBusinessModel(input, engineResult, faits, hasVerifiedSiteContent)
 
     const interlocuteurContact = business.contactabilite === 'BONNE' ? engineResult.selectedContact : null
     const interlocuteur = interlocuteurContact
