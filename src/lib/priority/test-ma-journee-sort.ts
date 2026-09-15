@@ -18,7 +18,7 @@ function vm(overrides: Partial<ProspectViewModel>): ProspectViewModel {
       readiness: true, priorite: 'P2', secondaryScore: 9, scoreBreakdown: [],
       nextBestAction: { type: 'CALL', reason: 'x' }, selectedContact: null, whyNow: [], warnings: [],
     } as any,
-    business: { contactabilite: 'BONNE', connaissance: 'BONNE', armement: 'PRET', ready: true, faitPrincipal: null, raisonMaintenant: 'x' },
+    business: { contactabilite: 'BONNE', connaissance: 'BONNE', armement: 'PRET', ready: true, faitPrincipal: null, raisonMaintenant: 'x', raisonLabel: 'Pourquoi ce prospect ?', angleApproche: 'x', uiNba: 'CALL' },
     interlocuteur: null,
     ...overrides,
   }

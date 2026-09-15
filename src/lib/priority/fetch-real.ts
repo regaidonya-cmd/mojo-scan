@@ -8,7 +8,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { evaluateProspect } from './engine'
-import { evaluateBusinessModel, classifySiteStatutOnly, classifyFaitText, FaitCommercial } from './business-model'
+import { evaluateBusinessModel, classifySiteStatutOnly, buildFaitCommercial, FaitCommercial } from './business-model'
 import type { ProspectInput, ContactMethod, CommercialPriorityResult } from './types'
 import type { BusinessModelResult } from './business-model'
 
@@ -157,9 +157,8 @@ export async function fetchMaJourneeData(): Promise<ProspectViewModel[]> {
       siteCrawlByCompany.set(obs.company_id, cur)
     }
     if (obs.attribut === 'fait_specifique' && obs.valeur && obs.valeur !== 'aucun') {
-      const sensibilite = classifyFaitText(obs.valeur)
       const arr = faitsByCompany.get(obs.company_id) ?? []
-      arr.push({ texte: obs.valeur, sensibilite, source: 'observation P0.4/P0.5' })
+      arr.push(buildFaitCommercial(obs.valeur, 'observation P0.4/P0.5'))
       faitsByCompany.set(obs.company_id, arr)
     }
   }
@@ -205,11 +204,8 @@ export async function fetchMaJourneeData(): Promise<ProspectViewModel[]> {
     if (faits.length === 0 && siteStatut && (siteStatut === 'FOUND' || siteStatut === 'AMBIGUOUS' || siteStatut === 'NOT_FOUND')) {
       const sensibilite = classifySiteStatutOnly(siteStatut)
       if (sensibilite) {
-        faits.push({
-          texte: siteStatut === 'AMBIGUOUS' ? "Site ambigu identifié — adresse à confirmer avant tout usage." : '',
-          sensibilite,
-          source: 'observation (site_statut seul)',
-        })
+        const texte = siteStatut === 'AMBIGUOUS' ? "Site ambigu identifié — adresse à confirmer avant tout usage." : ''
+        faits.push({ texte, texteAffichable: texte, sensibilite, source: 'observation (site_statut seul)' })
       }
     }
 

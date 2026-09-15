@@ -19,9 +19,9 @@ function base(overrides: Partial<ProspectInput> = {}): ProspectInput {
     isLostDefinitive: false, isWon: false, events: [], now: '2026-09-15T10:00:00Z', ...overrides,
   }
 }
-const faitUsable: FaitCommercial = { texte: 'Diversification récente', sensibilite: 'UTILISABLE_DANS_ACCROCHE', source: 'test' }
-const faitInterne: FaitCommercial = { texte: 'Changement de direction', sensibilite: 'CONTEXTE_INTERNE', source: 'test' }
-const faitAVerifier: FaitCommercial = { texte: 'Statut incertain', sensibilite: 'A_VERIFIER', source: 'test' }
+const faitUsable: FaitCommercial = { texte: 'Diversification récente', texteAffichable: 'Diversification récente', sensibilite: 'UTILISABLE_DANS_ACCROCHE', source: 'test' }
+const faitInterne: FaitCommercial = { texte: 'Changement de direction', texteAffichable: 'Changement de direction', sensibilite: 'CONTEXTE_INTERNE', source: 'test' }
+const faitAVerifier: FaitCommercial = { texte: 'Statut incertain', texteAffichable: 'Statut incertain', sensibilite: 'A_VERIFIER', source: 'test' }
 
 // 1. Opposition entreprise globale -> BLOQUEE
 {
@@ -131,7 +131,7 @@ import { classifySiteStatutOnly } from './business-model'
 {
   const input = base()
   const r = evaluateProspect(input)
-  const faitAnciennete: FaitCommercial = { texte: 'Dirigeant + 18 ans ancienneté', sensibilite: 'CONTEXTE_INTERNE', source: 'test' }
+  const faitAnciennete: FaitCommercial = { texte: 'Dirigeant + 18 ans ancienneté', texteAffichable: 'Dirigeant + 18 ans ancienneté', sensibilite: 'CONTEXTE_INTERNE', source: 'test' }
   const bm = evaluateBusinessModel(input, r, [faitAnciennete])
   t('14. anciennete seule -> pas READY', bm.ready === false)
 }
@@ -148,6 +148,99 @@ import { classifySiteStatutOnly } from './business-model'
   const r = evaluateProspect(input)
   const bm = evaluateBusinessModel(input, r, [])
   t('16. absence de contact -> INSUFFISANTE (pas BLOQUEE)', bm.contactabilite === 'INSUFFISANTE')
+}
+
+import { sanitizeFaitTexte, buildFaitCommercial } from './business-model'
+
+// 17. P2 -> "Pourquoi ce prospect ?"
+{
+  const input = base()
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [faitUsable])
+  t('17. P2 -> raisonLabel = Pourquoi ce prospect ?', bm.raisonLabel === 'Pourquoi ce prospect ?')
+}
+// 18. P0/P1 avec signal temporel reel -> "Pourquoi maintenant ?"
+{
+  const input = base({ events: [{ kind: 'CALLBACK_REQUESTED', occurredAt: '2026-09-15T09:00:00Z', dueAt: '2026-09-15T12:00:00Z', originatedByProspect: true }] })
+  const r = evaluateProspect(input)
+  t('18. prerequis : priorite bien P0 pour ce cas', r.priorite === 'P0')
+  const bm = evaluateBusinessModel(input, r, [faitUsable])
+  t('18. P0 -> raisonLabel = Pourquoi maintenant ?', bm.raisonLabel === 'Pourquoi maintenant ?')
+}
+// 19. Aucune duplication Fait/Angle : angle != texte brut du fait
+{
+  const input = base()
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [faitUsable])
+  t('19. angle != texte du fait (pas de duplication)', bm.angleApproche !== faitUsable.texte)
+}
+// 20. CONTEXTE_INTERNE non expose comme argument commercial (sanitisation)
+{
+  const texteMixte = 'Marche public notifie avec Client Public, 5M EUR, duree 3 ans; changement de gouvernance le 01/01/2026 (Nouvel Actionnaire)'
+  const affichable = sanitizeFaitTexte(texteMixte)
+  t('20. sanitizeFaitTexte retire la portion gouvernance', !affichable.toLowerCase().includes('gouvernance'))
+  t('20. sanitizeFaitTexte conserve le marche public', affichable.toLowerCase().includes('marche public'))
+}
+// 21. DIAGOBAH reel : marche public conserve, gouvernance absente de texteAffichable
+{
+  const texteDiagobah = 'Marche public notifie avec Paris Habitat, 12.3M EUR, duree 4 ans, notifie 06/10/2025; ouverture 3eme agence reseau en Val-de-Marne (coherence geographique/temporelle avec la creation de lentite en 07/2023); changement de gouvernance le 09/10/2025 (2L INVEST/SP MERCURY)'
+  const affichable = sanitizeFaitTexte(texteDiagobah)
+  t('21. DIAGOBAH : gouvernance absente du texte affichable', !affichable.toLowerCase().includes('gouvernance'))
+  t('21. DIAGOBAH : marche public conserve', affichable.toLowerCase().includes('marche public'))
+  t('21. DIAGOBAH : ouverture agence conservee', affichable.toLowerCase().includes('agence'))
+}
+// 22. Interlocuteur ambigu -> uiNba QUALIFY
+{
+  const input = base({ contactMethods: [contact({ contactMethodId: 'a', personneId: 'p1' }), contact({ contactMethodId: 'b', personneId: 'p2' })] })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [faitUsable])
+  t('22. interlocuteur ambigu -> uiNba QUALIFY', bm.uiNba === 'QUALIFY')
+}
+// 23. Contact clair + armement insuffisant -> uiNba ENRICH
+{
+  const input = base()
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, []) // aucun fait -> armement insuffisant
+  t('23. contact clair + armement insuffisant -> ENRICH', bm.uiNba === 'ENRICH')
+}
+// 24. Contact clair + armement suffisant -> uiNba CALL (jamais ENRICH/QUALIFY force)
+// hasReliableAngle aligné avec le fait fourni, comme le fait fetch-real.ts en production
+{
+  const input = base({ hasReliableAngle: true, angleSource: faitUsable.texte })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [faitUsable])
+  t('24. contact clair + armement suffisant -> CALL, pas ENRICH', bm.uiNba === 'CALL')
+}
+// 25. READY existants non degrades : un fait utilisable seul reste suffisant pour READY
+{
+  const input = base()
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [faitUsable])
+  t('25. READY non degrade par les changements FIX.2', bm.ready === true)
+}
+
+// 26. [FIX.3] Phrase UNIQUE sans ';' melangeant marche public reel ET
+// gouvernance -> separation non fiable -> ne doit PAS etre expose comme
+// UTILISABLE_DANS_ACCROCHE
+{
+  const texteMonophrase = "Marche public notifie avec un client public suite au changement de gouvernance recent de l'entreprise"
+  const fait = buildFaitCommercial(texteMonophrase, 'test')
+  t('26. mono-phrase ambigue -> retrogradee en CONTEXTE_INTERNE', fait.sensibilite === 'CONTEXTE_INTERNE')
+  t('26. donnee brute conservee pour audit (texte inchange)', fait.texte === texteMonophrase)
+}
+// 27. [FIX.3] DIAGOBAH reel (avec ';') reste correctement exploitable
+{
+  const texteDiagobah = 'Marche public notifie avec Paris Habitat, 12.3M EUR, duree 4 ans, notifie 06/10/2025; ouverture 3eme agence reseau en Val-de-Marne (coherence geographique/temporelle avec la creation de lentite en 07/2023); changement de gouvernance le 09/10/2025 (2L INVEST/SP MERCURY)'
+  const fait = buildFaitCommercial(texteDiagobah, 'test')
+  t('27. DIAGOBAH (separation fiable via ;) reste UTILISABLE', fait.sensibilite === 'UTILISABLE_DANS_ACCROCHE')
+  t('27. DIAGOBAH texteAffichable sans gouvernance', !fait.texteAffichable.toLowerCase().includes('gouvernance'))
+  t('27. DIAGOBAH texteAffichable conserve le marche public', fait.texteAffichable.toLowerCase().includes('marche public'))
+}
+// 28. [FIX.3] Texte sain sans ';' et sans marqueur sensible -> reste exploitable
+{
+  const fait = buildFaitCommercial('Reservation en ligne disponible sur le site officiel', 'test')
+  t('28. texte sain mono-phrase -> reste UTILISABLE', fait.sensibilite === 'UTILISABLE_DANS_ACCROCHE')
+  t('28. texteAffichable = texte (rien a retirer)', fait.texteAffichable === 'Reservation en ligne disponible sur le site officiel')
 }
 
 console.log('')
