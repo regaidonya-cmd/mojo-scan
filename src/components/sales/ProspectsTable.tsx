@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { DS } from '@/lib/ds/tokens'
 import type { ProspectViewModel } from '@/lib/priority/fetch-real'
+import { formatDateFr } from '@/lib/priority/format-date-fr'
 import { applyFilters, sortProspects, QUICK_VIEWS, EMPTY_FILTERS, ProspectsFilters, SortKey } from '@/lib/priority/prospects-filters'
 
 const PAGE_SIZE = 25
@@ -138,7 +139,7 @@ export function ProspectsTable({ all }: { all: ProspectViewModel[] }) {
                     <td style={td}>
                       {NBA_LABEL[v.business.displayNba.type] ?? v.business.displayNba.type}
                       {v.business.displayNba.dueAt && (
-                        <div style={{ fontSize: 11, color: DS.muted }}>{new Date(v.business.displayNba.dueAt).toLocaleDateString('fr-FR')}</div>
+                        <div style={{ fontSize: 11, color: DS.muted }}>{formatDateFr(v.business.displayNba.dueAt)}</div>
                       )}
                     </td>
                     <td style={td}>

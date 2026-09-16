@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { DS } from '@/lib/ds/tokens'
 import { computeConsequence, RESULTAT_LABEL, type ResultatAppel, type OppositionScope } from '@/lib/priority/activite-consequence'
+import { formatDateHeureFr } from '@/lib/priority/format-date-fr'
 
 const RESULTATS: ResultatAppel[] = [
   'PAS_DE_REPONSE', 'A_RAPPELER', 'ECHANGE_OBTENU', 'INTERESSE', 'RDV_OBTENU',
@@ -207,8 +208,8 @@ export function ResultatAppelForm({
             <div style={{ fontSize: 13, color: DS.text, lineHeight: 1.6 }}>
               {resultat === 'RDV_OBTENU' ? (
                 <>
-                  <div>RDV prévu le : <strong>{dateRdv ? new Date(dateRdv).toLocaleString('fr-FR') : '—'}</strong></div>
-                  <div>Préparer le RDV à partir du : <strong>{preview.nextActionDueAt ? new Date(preview.nextActionDueAt).toLocaleString('fr-FR') : '—'}</strong> <span style={{ color: DS.muted }}>(dérivé, non modifiable)</span></div>
+                  <div>RDV prévu le : <strong>{dateRdv ? formatDateHeureFr(localInputToIso(dateRdv)) : '—'}</strong></div>
+                  <div>Préparer le RDV à partir du : <strong>{formatDateHeureFr(preview.nextActionDueAt)}</strong> <span style={{ color: DS.muted }}>(dérivé, non modifiable)</span></div>
                 </>
               ) : resultat === 'OPPORTUNITE_CLOTUREE' ? (
                 <div>Opportunité clôturée — aucune relance programmée</div>
@@ -224,7 +225,7 @@ export function ResultatAppelForm({
               ) : (
                 <>
                   <div>Prochaine action : <strong>{NBA_LABEL[preview.nextActionType] ?? preview.nextActionType}</strong></div>
-                  {preview.nextActionDueAt && <div>Prévue le : <strong>{new Date(preview.nextActionDueAt).toLocaleString('fr-FR')}</strong></div>}
+                  {preview.nextActionDueAt && <div>Prévue le : <strong>{formatDateHeureFr(preview.nextActionDueAt)}</strong></div>}
                 </>
               )}
               {preview.temperature && <div>Température : <strong>{preview.temperature}</strong></div>}

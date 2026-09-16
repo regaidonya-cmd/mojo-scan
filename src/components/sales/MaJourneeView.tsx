@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { DS } from '@/lib/ds/tokens'
 import type { MaJourneeClassification } from '@/lib/priority/ma-journee-sort'
 import { ProspectCard } from './ProspectCard'
+import { formatDateFr } from '@/lib/priority/format-date-fr'
 
 const PAGE_SIZE = 10
 
@@ -183,7 +184,7 @@ function PreparerRow({ vm }: { vm: MaJourneeClassification['aPreparer'][number] 
       <span style={{ color: DS.text, fontWeight: 600 }}>{vm.companyName}</span>
       <span style={{ color: DS.muted }}>
         {label[nba.type] ?? nba.type}
-        {nba.dueAt && ` — ${new Date(nba.dueAt).toLocaleDateString('fr-FR')}`}
+        {nba.dueAt && ` — ${formatDateFr(nba.dueAt)}`}
       </span>
     </div>
   )

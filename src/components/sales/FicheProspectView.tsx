@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { DS } from '@/lib/ds/tokens'
 import type { ProspectViewModel, HistoriqueEvent } from '@/lib/priority/fetch-real'
 import { ResultatAppelForm } from './ResultatAppelForm'
+import { formatDateHeureFr, formatDateFr } from '@/lib/priority/format-date-fr'
 
 const PIPELINE_LABEL: Record<string, string> = {
   A_CONTACTER: 'À contacter', EN_DISCUSSION: 'En discussion', RDV: 'RDV',
@@ -113,7 +114,7 @@ export function FicheProspectView({ vm, historique }: { vm: ProspectViewModel; h
           <div style={{ display: 'inline-block', padding: '10px 20px', borderRadius: DS.rMd, background: DS.lav, color: DS.violet, fontWeight: 700, fontSize: 14 }}>
             {NBA_LABEL[business.displayNba.type] ?? business.displayNba.type}
             {business.displayNba.dueAt && (
-              <span style={{ fontWeight: 500 }}> — {new Date(business.displayNba.dueAt).toLocaleString('fr-FR')}</span>
+              <span style={{ fontWeight: 500 }}> — {formatDateHeureFr(business.displayNba.dueAt)}</span>
             )}
           </div>
         )}
@@ -145,7 +146,7 @@ export function FicheProspectView({ vm, historique }: { vm: ProspectViewModel; h
         ) : (
           historique.map((h) => (
             <div key={h.id} style={{ padding: '8px 0', borderBottom: `1px solid ${DS.border}`, fontSize: 13 }}>
-              <span style={{ color: DS.muted }}>{new Date(h.dateEvenement).toLocaleDateString('fr-FR')}</span>
+              <span style={{ color: DS.muted }}>{formatDateFr(h.dateEvenement)}</span>
               {' — '}
               <span style={{ fontWeight: 700 }}>{h.type ?? 'Événement'}</span>
               {h.resultat && ` — ${h.resultat}`}
