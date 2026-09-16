@@ -60,6 +60,12 @@ export interface ConsequenceInput {
   now: string // ISO
   dateRappelSaisie?: string // ISO, requis pour A_RAPPELER
   dateRdvSaisie?: string // ISO, requis pour RDV_OBTENU
+  // P0.7D-FIX.1 — override utilisateur de la date proposée par défaut
+  // (PAS_DE_REPONSE/ECHANGE_OBTENU/INTERESSE/PAS_INTERESSE_REACTIVABLE).
+  // Si fourni, prime TOUJOURS sur le calcul par défaut — jamais recalculé
+  // silencieusement côté serveur. Le serveur valide seulement sa validité
+  // (cf. isValidFutureIsoDate), il ne la remplace jamais par la valeur par défaut.
+  dateProchaineActionSaisie?: string
   oppositionScope?: OppositionScope // requis pour DEMANDE_NE_PLUS_CONTACTER
 }
 
@@ -95,12 +101,26 @@ function addDays(iso: string, days: number): string {
  * Calcule la conséquence déterministe d'un résultat d'appel.
  * Ne persiste rien — l'appelant (route serveur) applique le résultat.
  */
+/**
+ * P0.7D-FIX.1 §6 — Validation SERVEUR autoritaire d'une date fournie par
+ * l'utilisateur (rappel, RDV, ou override de date proposée). Rejette une
+ * date non parseable ou trop dans le passé (tolérance 5 min pour l'horloge
+ * client). Ne recalcule JAMAIS la valeur — accepte ou rejette telle quelle.
+ */
+export function isValidFutureIsoDate(iso: string, now: string): boolean {
+  const t = new Date(iso).getTime()
+  if (Number.isNaN(t)) return false
+  const nowT = new Date(now).getTime()
+  const TOLERANCE_MS = 5 * 60 * 1000
+  return t >= nowT - TOLERANCE_MS
+}
+
 export function computeConsequence(input: ConsequenceInput): Consequence {
   const { resultat, now } = input
 
   switch (resultat) {
     case 'PAS_DE_REPONSE': {
-      const dueAt = addBusinessDays(now, 3)
+      const dueAt = input.dateProchaineActionSaisie ?? addBusinessDays(now, 3)
       return {
         eventKind: null, // action MOJO seule -> aucun signal prospect, temperature inchangee
         eventDueAt: null,
@@ -132,7 +152,7 @@ export function computeConsequence(input: ConsequenceInput): Consequence {
       }
     }
     case 'ECHANGE_OBTENU': {
-      const dueAt = addDays(now, 7)
+      const dueAt = input.dateProchaineActionSaisie ?? addDays(now, 7)
       return {
         eventKind: null,
         eventDueAt: null,
@@ -151,7 +171,7 @@ export function computeConsequence(input: ConsequenceInput): Consequence {
       // dure, est P1 (chaud actif), PAS automatiquement P0. Le suivi devient
       // P0 seulement lorsque son échéance (J+1, explicite/modifiable) est
       // réellement atteinte — jamais au moment même de l'enregistrement.
-      const dueAt = addDays(now, 1)
+      const dueAt = input.dateProchaineActionSaisie ?? addDays(now, 1)
       return {
         eventKind: 'POSITIVE_REPLY',
         eventDueAt: null,
@@ -181,7 +201,7 @@ export function computeConsequence(input: ConsequenceInput): Consequence {
       }
     }
     case 'PAS_INTERESSE_REACTIVABLE': {
-      const dueAt = addDays(now, 90)
+      const dueAt = input.dateProchaineActionSaisie ?? addDays(now, 90)
       return {
         eventKind: 'NEGATIVE_REPLY',
         eventDueAt: null,

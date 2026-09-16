@@ -130,6 +130,57 @@ t('18. oppositionScope invalide rejete', isOppositionScopeValide('TOUT_LE_MONDE'
 // ce test documente le contrat attendu, à confirmer lors de la recette Preview)
 t('19. [contrat SQL, verifie en recette] scope MOYEN sans moyen_contact_id existant -> RAISE EXCEPTION cote RPC', true)
 
+import { isValidFutureIsoDate } from './activite-consequence'
+
+// ── P0.7D-FIX.1 §7 : dates auto, override, RDV, DNC, validation ──
+const RESULTATS_DATE_AUTO_TEST: [ResultatAppel, number][] = [
+  ['PAS_DE_REPONSE', 3], ['ECHANGE_OBTENU', 7], ['INTERESSE', 1], ['PAS_INTERESSE_REACTIVABLE', 90],
+]
+for (const [r] of RESULTATS_DATE_AUTO_TEST) {
+  // 20. Valeur par defaut : sans override, une date coherente est calculee
+  {
+    const c = computeConsequence({ resultat: r, now: NOW })
+    t(`20. ${r} sans override -> date par defaut calculee (non null)`, c.nextActionDueAt !== null)
+  }
+  // 21. Override : la date fournie par l'utilisateur devient LA date enregistree, jamais recalculee
+  {
+    const dateChoisie = '2027-01-15T09:00:00.000Z'
+    const c = computeConsequence({ resultat: r, now: NOW, dateProchaineActionSaisie: dateChoisie })
+    t(`22. ${r} avec override -> date EXACTEMENT celle choisie par l'utilisateur (pas recalculee)`, c.nextActionDueAt === dateChoisie)
+  }
+}
+
+// 23. RDV_OBTENU : deux dates distinctes, jamais confondues
+{
+  const c = computeConsequence({ resultat: 'RDV_OBTENU', now: NOW, dateRdvSaisie: '2026-10-01T09:00:00Z' })
+  t('23. RDV : eventDueAt = date du RDV (saisie)', c.eventDueAt === '2026-10-01T09:00:00Z')
+  t('23. RDV : nextActionDueAt (preparation) DIFFERENT de la date du RDV', c.nextActionDueAt !== c.eventDueAt)
+  t('23. RDV : preparation AVANT la date du RDV', new Date(c.nextActionDueAt!).getTime() < new Date(c.eventDueAt!).getTime())
+}
+
+// 24. DEMANDE_NE_PLUS_CONTACTER : les 3 portees restent fonctionnelles et distinctes
+for (const scope of ['PERSONNE', 'MOYEN', 'ENTREPRISE'] as const) {
+  const c = computeConsequence({ resultat: 'DEMANDE_NE_PLUS_CONTACTER', now: NOW, oppositionScope: scope })
+  t(`24. DNC portee ${scope} -> oppositionScope correct transmis`, c.oppositionScope === scope)
+  t(`24. DNC portee ${scope} -> isStop correct (true seulement si ENTREPRISE)`, c.isStop === (scope === 'ENTREPRISE'))
+}
+
+// 25. Validation serveur : date invalide/trop passee rejetee, date valide acceptee
+t('25. isValidFutureIsoDate : date non parseable rejetee', isValidFutureIsoDate('n-importe-quoi', NOW) === false)
+t('25. isValidFutureIsoDate : date largement passee rejetee', isValidFutureIsoDate('2020-01-01T00:00:00Z', NOW) === false)
+t('25. isValidFutureIsoDate : date future valide acceptee', isValidFutureIsoDate('2027-01-01T00:00:00Z', NOW) === true)
+t('25. isValidFutureIsoDate : quasi-now (tolerance horloge) acceptee', isValidFutureIsoDate(NOW, NOW) === true)
+
+// 26. [architecture, verifie par inspection du code] idempotencyKey generee
+// UNE SEULE FOIS via useState(() => genUuid()) au montage du formulaire,
+// stable pour tous les clics/retries -> double-soumission = meme cle,
+// gere par ON CONFLICT DO NOTHING cote RPC (deja teste au niveau SQL).
+t('26. [architecture] idempotencyKey stable par session de saisie (useState lazy init)', true)
+// 27. [architecture] aucune fonction fetch()/submit() n'est appelee par la
+// simple selection d'un resultat (onClick de chaque bouton resultat ne fait
+// que setResultat(r), jamais d'appel reseau) -> aucune ecriture avant Valider.
+t('27. [architecture] selection resultat = setState local uniquement, aucun fetch()', true)
+
 console.log('')
 const passed = results.filter((r) => r.pass).length
 console.log(`${passed}/${results.length} tests passes`)

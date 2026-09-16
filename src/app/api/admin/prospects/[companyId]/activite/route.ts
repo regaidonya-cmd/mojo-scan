@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
-import { computeConsequence, isResultatValide, isOppositionScopeValide, type ResultatAppel, type OppositionScope } from '@/lib/priority/activite-consequence'
+import { computeConsequence, isResultatValide, isOppositionScopeValide, isValidFutureIsoDate, type ResultatAppel, type OppositionScope } from '@/lib/priority/activite-consequence'
 
 function getToken(): string {
   return crypto.createHash('sha256').update(process.env.ADMIN_PASSWORD ?? '').digest('hex')
@@ -16,11 +16,15 @@ export async function POST(req: NextRequest, { params }: { params: { companyId: 
 
   const body = await req.json()
   const {
-    resultat, idempotencyKey, personneId, moyenContactId, dateRappelSaisie, dateRdvSaisie, oppositionScope, description,
+    resultat, idempotencyKey, personneId, moyenContactId,
+    dateRappelSaisie, dateRdvSaisie, dateProchaineActionSaisie, oppositionScope, description,
   }: {
     resultat: ResultatAppel; idempotencyKey: string; personneId?: string; moyenContactId?: string
-    dateRappelSaisie?: string; dateRdvSaisie?: string; oppositionScope?: OppositionScope; description?: string
+    dateRappelSaisie?: string; dateRdvSaisie?: string; dateProchaineActionSaisie?: string
+    oppositionScope?: OppositionScope; description?: string
   } = body
+
+  const now = new Date().toISOString()
 
   // P0.7C-HARDENING §1 — autorité serveur : toute valeur brute du client
   // est validée contre une liste FERMÉE avant tout traitement. Le client
@@ -31,6 +35,20 @@ export async function POST(req: NextRequest, { params }: { params: { companyId: 
   }
   if (oppositionScope !== undefined && !isOppositionScopeValide(oppositionScope)) {
     return NextResponse.json({ error: `oppositionScope invalide : ${oppositionScope}` }, { status: 400 })
+  }
+
+  // P0.7D-FIX.1 §2/§6 — le serveur VALIDE une date fournie par l'utilisateur,
+  // il ne la RECALCULE ni ne l'écrase jamais silencieusement par la valeur
+  // par défaut. Une date invalide est rejetée explicitement (400), pas
+  // remplacée en silence.
+  for (const [label, val] of [
+    ['dateRappelSaisie', dateRappelSaisie],
+    ['dateRdvSaisie', dateRdvSaisie],
+    ['dateProchaineActionSaisie', dateProchaineActionSaisie],
+  ] as const) {
+    if (val !== undefined && !isValidFutureIsoDate(val, now)) {
+      return NextResponse.json({ error: `${label} invalide ou trop dans le passé : ${val}` }, { status: 400 })
+    }
   }
 
   if (!idempotencyKey) {
@@ -48,10 +66,13 @@ export async function POST(req: NextRequest, { params }: { params: { companyId: 
     }
   }
 
+  // P0.7D-FIX.1 §6 — MÊME fonction pure que la prévisualisation client
+  // (aucune logique dupliquée) ; seule différence : `now` autoritaire
+  // serveur, et la date est celle validée ci-dessus, jamais recalculée.
   let consequence
   try {
     consequence = computeConsequence({
-      resultat, now: new Date().toISOString(), dateRappelSaisie, dateRdvSaisie, oppositionScope,
+      resultat, now, dateRappelSaisie, dateRdvSaisie, dateProchaineActionSaisie, oppositionScope,
     })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 400 })
