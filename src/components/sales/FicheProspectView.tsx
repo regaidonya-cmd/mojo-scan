@@ -96,17 +96,6 @@ export function FicheProspectView({ vm, historique }: { vm: ProspectViewModel; h
         {emailAffichable && <Row label="Email autorisé" value={emailAffichable} />}
       </Section>
 
-      {/* ⚠️ INSTRUMENTATION TEMPORAIRE DIAGNOSTIC P0.7D-DIAG — À SUPPRIMER APRÈS
-          LECTURE — visible uniquement pour le prospect fictif de recette. */}
-      {vm.siren === '000000001' && (
-        <div style={{ background: '#FFF3CD', border: '1px solid #FFC107', borderRadius: 8, padding: 10, marginBottom: 12, fontSize: 11, fontFamily: 'monospace' }}>
-          <div>persistedNextActionType = {JSON.stringify(vm.persistedNextActionType)}</div>
-          <div>business.uiNba = {JSON.stringify(business.uiNba)}</div>
-          <div>business.displayNba.type = {JSON.stringify(business.displayNba.type)}</div>
-          <div>business.displayNba.source = {JSON.stringify(business.displayNba.source)}</div>
-        </div>
-      )}
-
       {/* NBA — lien tel: reel uniquement si telephone autorise ET action = CALL ;
           sinon information seule (P0.7D-FIX.5 : displayNba = source unique,
           priorite a une action commerciale persistee pertinente) */}
