@@ -1,17 +1,30 @@
 import type { ProspectViewModel } from './fetch-real'
+import { NEXT_ACTION_RELANCE_TYPES } from './types'
 
 const PRIORITY_ORDER = ['STOP', 'P0', 'P1', 'P2', 'P3', 'P4']
 
 export interface MaJourneeClassification {
-  zoneA: ProspectViewModel[] // P0/P1 réels uniquement
+  zoneA: ProspectViewModel[] // P0/P1 réels uniquement (engine.ts fait foi, jamais une simple date)
+  zoneRelance: ProspectViewModel[] // P0.7 — relance due mais non urgente (NURTURE/WAIT dus) : jamais mélangée à Zone A
   zoneBReady: ProspectViewModel[] // READY, triés P2 d'abord puis score
   aPreparer: ProspectViewModel[] // NOT READY (QUALIFY/ENRICH/A_VERIFIER), STOP exclus
 }
 
-export function classifyForMaJournee(all: ProspectViewModel[]): MaJourneeClassification {
+function isRelanceDue(v: ProspectViewModel, nowIso: string): boolean {
+  if (!v.persistedNextActionType || !v.persistedNextActionDueAt) return false
+  if (!NEXT_ACTION_RELANCE_TYPES.has(v.persistedNextActionType)) return false
+  return new Date(v.persistedNextActionDueAt).getTime() <= new Date(nowIso).getTime()
+}
+
+export function classifyForMaJournee(all: ProspectViewModel[], nowIso: string = new Date().toISOString()): MaJourneeClassification {
   const stop = all.filter((v) => v.engine.priorite === 'STOP')
   const zoneA = all.filter((v) => v.engine.priorite === 'P0' || v.engine.priorite === 'P1')
-  const rest = all.filter((v) => v.engine.priorite !== 'STOP' && v.engine.priorite !== 'P0' && v.engine.priorite !== 'P1')
+  const remaining1 = all.filter((v) => v.engine.priorite !== 'STOP' && v.engine.priorite !== 'P0' && v.engine.priorite !== 'P1')
+
+  // P0.7 §1 — une relance due (NURTURE/WAIT) ne rejoint JAMAIS Zone A, même
+  // arrivée à échéance : elle va dans sa propre zone, séparée des urgences.
+  const zoneRelance = remaining1.filter((v) => isRelanceDue(v, nowIso)).sort(deterministicSort)
+  const rest = remaining1.filter((v) => !isRelanceDue(v, nowIso))
 
   const zoneBReady = rest
     .filter((v) => v.business.ready)
@@ -24,7 +37,7 @@ export function classifyForMaJournee(all: ProspectViewModel[]): MaJourneeClassif
   // stop est volontairement exclu de tous les affichages (aucune action possible)
   void stop
 
-  return { zoneA: zoneA.sort(zoneASort), zoneBReady, aPreparer }
+  return { zoneA: zoneA.sort(zoneASort), zoneRelance, zoneBReady, aPreparer }
 }
 
 function zoneASort(a: ProspectViewModel, b: ProspectViewModel): number {

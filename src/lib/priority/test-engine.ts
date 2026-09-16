@@ -223,6 +223,63 @@ function t(name: string, cond: boolean, detail?: string) {
   )
 }
 
+// 22. [P0.7] NURTURE du -> PAS P0 (nature non urgente, meme si echeance depassee)
+{
+  const r = evaluateProspect(
+    baseInput({ persistedNextAction: { type: 'NURTURE', dueAt: '2026-09-01T00:00:00Z', reason: 'test' } })
+  )
+  t('22. NURTURE du -> jamais P0', r.priorite !== 'P0', r.priorite)
+}
+// 23. [P0.7] WAIT du -> PAS P0 non plus
+{
+  const r = evaluateProspect(
+    baseInput({ persistedNextAction: { type: 'WAIT', dueAt: '2026-09-01T00:00:00Z', reason: 'test' } })
+  )
+  t('23. WAIT du -> jamais P0', r.priorite !== 'P0', r.priorite)
+}
+// 24. [P0.7] CALLBACK du (type urgent) -> P0
+{
+  const r = evaluateProspect(
+    baseInput({ persistedNextAction: { type: 'CALLBACK', dueAt: '2026-09-01T00:00:00Z', reason: 'Rappel du' } })
+  )
+  t('24. CALLBACK du -> P0', r.priorite === 'P0', r.priorite)
+}
+// 25. [P0.7] CALLBACK PAS ENCORE du (futur) -> PAS P0
+{
+  const r = evaluateProspect(
+    baseInput({ persistedNextAction: { type: 'CALLBACK', dueAt: '2026-12-01T00:00:00Z', reason: 'test' } })
+  )
+  t('25. CALLBACK futur (non du) -> jamais P0 automatiquement', r.priorite !== 'P0', r.priorite)
+}
+// 26. [P0.7] temperature persistee fait autorite, jamais recalculee/ecrasee
+{
+  const r = evaluateProspect(baseInput({ persistedTemperature: 'CHAUD', events: [] }))
+  t('26. temperature persistee CHAUD respectee malgre 0 evenement', r.temperature === 'CHAUD')
+}
+
+// 27. [P0.7C] INTERESSE immediatement apres enregistrement -> P1, PAS P0
+// (temperature=intention prospect, priorite=urgence operationnelle, distinctes)
+{
+  const r = evaluateProspect(
+    baseInput({
+      persistedTemperature: 'CHAUD',
+      persistedNextAction: { type: 'FOLLOW_UP', dueAt: '2026-09-16T10:00:00Z', reason: 'Interet exprime' }, // J+1, pas encore du
+    })
+  )
+  t('27. Interesse (CHAUD) sans echeance due -> P1, jamais P0 automatique', r.priorite === 'P1', r.priorite)
+  t('27. temperature bien CHAUD (persistee)', r.temperature === 'CHAUD')
+}
+// 28. [P0.7C] Meme cas, une fois l'echeance de suivi atteinte -> P0
+{
+  const r = evaluateProspect(
+    baseInput({
+      persistedTemperature: 'CHAUD',
+      persistedNextAction: { type: 'FOLLOW_UP', dueAt: '2026-09-01T00:00:00Z', reason: 'Interet exprime' }, // du
+    })
+  )
+  t('28. Suivi devenu du -> P0 (urgence reelle, pas juste la date)', r.priorite === 'P0', r.priorite)
+}
+
 console.log('')
 const passed = results.filter((r) => r.pass).length
 console.log(`${passed}/${results.length} tests passes`)

@@ -11,6 +11,9 @@ function vm(overrides: Partial<ProspectViewModel>): ProspectViewModel {
   return {
     companyId: 'c',
     companyName: 'ZZZ',
+    siren: '000000000',
+    naf: null,
+    pipelineStage: 'A_CONTACTER',
     ville: null,
     distanceKm: null,
     engine: {
@@ -20,8 +23,43 @@ function vm(overrides: Partial<ProspectViewModel>): ProspectViewModel {
     } as any,
     business: { contactabilite: 'BONNE', connaissance: 'BONNE', armement: 'PRET', ready: true, faitPrincipal: null, raisonMaintenant: 'x', raisonLabel: 'Pourquoi ce prospect ?', angleApproche: 'x', uiNba: 'CALL' },
     interlocuteur: null,
+    telephoneAffichable: null,
+    emailAffichable: null,
+    persistedNextActionType: null,
+    persistedNextActionDueAt: null,
+    persistedNextActionReason: null,
     ...overrides,
   }
+}
+
+const NOW = '2026-09-15T10:00:00Z'
+
+// 20. [P0.7] NURTURE du -> zone Relance, PAS Zone A, PAS aPreparer/zoneBReady
+{
+  const a = vm({
+    companyId: 'a', persistedNextActionType: 'NURTURE', persistedNextActionDueAt: '2026-09-01T00:00:00Z',
+    engine: { ...vm({}).engine, priorite: 'P3' } as any, business: { ...vm({}).business, ready: false },
+  })
+  const c = classifyForMaJournee([a], NOW)
+  t('20. NURTURE du -> zone Relance uniquement', c.zoneRelance.length === 1 && c.zoneA.length === 0 && c.aPreparer.length === 0)
+}
+// 21. [P0.7] NURTURE PAS ENCORE du -> ne va PAS en zone Relance (reste normal)
+{
+  const a = vm({
+    companyId: 'a', persistedNextActionType: 'NURTURE', persistedNextActionDueAt: '2026-12-01T00:00:00Z',
+    engine: { ...vm({}).engine, priorite: 'P3' } as any, business: { ...vm({}).business, ready: false },
+  })
+  const c = classifyForMaJournee([a], NOW)
+  t('21. NURTURE futur -> pas en zone Relance', c.zoneRelance.length === 0 && c.aPreparer.length === 1)
+}
+// 22. [P0.7] CALLBACK du avec engine.priorite=P0 -> Zone A, jamais zone Relance
+{
+  const a = vm({
+    companyId: 'a', persistedNextActionType: 'CALLBACK', persistedNextActionDueAt: '2026-09-01T00:00:00Z',
+    engine: { ...vm({}).engine, priorite: 'P0' } as any,
+  })
+  const c = classifyForMaJournee([a], NOW)
+  t('22. CALLBACK du (P0 via engine) -> Zone A, jamais Relance', c.zoneA.length === 1 && c.zoneRelance.length === 0)
 }
 
 // 17. Distance depart deux prospects strictement equivalents par ailleurs

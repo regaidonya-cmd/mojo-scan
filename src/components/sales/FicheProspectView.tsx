@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { DS } from '@/lib/ds/tokens'
-import type { ProspectViewModel } from '@/lib/priority/fetch-real'
+import type { ProspectViewModel, HistoriqueEvent } from '@/lib/priority/fetch-real'
+import { ResultatAppelForm } from './ResultatAppelForm'
 
 const PIPELINE_LABEL: Record<string, string> = {
   A_CONTACTER: 'À contacter', EN_DISCUSSION: 'En discussion', RDV: 'RDV',
@@ -12,7 +13,7 @@ const NBA_LABEL: Record<string, string> = {
   WAIT: 'Attendre', NURTURE: 'Nurture', NO_ACTION: 'Aucune action', NO_ACTION_TEMPORAIRE: 'Aucune action pour le moment',
 }
 
-export function FicheProspectView({ vm }: { vm: ProspectViewModel }) {
+export function FicheProspectView({ vm, historique }: { vm: ProspectViewModel; historique: HistoriqueEvent[] }) {
   const { engine, business, companyName, siren, naf, ville, distanceKm, interlocuteur, pipelineStage, telephoneAffichable, emailAffichable } = vm
 
   return (
@@ -114,6 +115,31 @@ export function FicheProspectView({ vm }: { vm: ProspectViewModel }) {
             ? "Le lien ouvre votre application téléphone — aucun appel n'est déclenché automatiquement, aucune donnée n'est écrite."
             : "Aucune action n'est déclenchée automatiquement depuis cette page."}
         </p>
+        <ResultatAppelForm
+          companyId={vm.companyId}
+          personneId={engine.selectedContact?.personneId ?? null}
+          moyenContactId={engine.selectedContact?.contactMethodId ?? null}
+        />
+      </Section>
+
+      {/* P0.7 — Historique commercial réel. Vide tant qu'aucune écriture
+          n'a eu lieu (activites=0 ligne) — jamais un historique inventé. */}
+      <Section title="Historique commercial">
+        {historique.length === 0 ? (
+          <p style={{ fontSize: 13, color: DS.muted, fontStyle: 'italic', margin: 0 }}>
+            Aucun événement enregistré pour le moment.
+          </p>
+        ) : (
+          historique.map((h) => (
+            <div key={h.id} style={{ padding: '8px 0', borderBottom: `1px solid ${DS.border}`, fontSize: 13 }}>
+              <span style={{ color: DS.muted }}>{new Date(h.dateEvenement).toLocaleDateString('fr-FR')}</span>
+              {' — '}
+              <span style={{ fontWeight: 700 }}>{h.type ?? 'Événement'}</span>
+              {h.resultat && ` — ${h.resultat}`}
+              {h.description && <div style={{ color: DS.muted, marginTop: 2 }}>{h.description}</div>}
+            </div>
+          ))
+        )}
       </Section>
 
       {engine.warnings.length > 0 && (

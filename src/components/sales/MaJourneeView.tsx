@@ -11,7 +11,7 @@ export function MaJourneeView({ data }: { data: MaJourneeClassification }) {
   const [visible, setVisible] = useState(PAGE_SIZE)
   const [showPreparer, setShowPreparer] = useState(false)
 
-  const { zoneA, zoneBReady, aPreparer } = data
+  const { zoneA, zoneRelance, zoneBReady, aPreparer } = data
   const visibleZoneB = zoneBReady.slice(0, visible)
   const hasMore = zoneBReady.length > visible
 
@@ -39,6 +39,17 @@ export function MaJourneeView({ data }: { data: MaJourneeClassification }) {
           zoneA.map((vm) => <ProspectCard key={vm.companyId} vm={vm} />)
         )}
       </Section>
+
+      {/* P0.7 — RELANCE : action due mais de nature non urgente (NURTURE/WAIT).
+          Jamais mélangée à "À traiter maintenant" — c'est la NATURE de
+          l'action, pas la seule date, qui détermine l'urgence réelle. */}
+      {zoneRelance.length > 0 && (
+        <Section title={`Relances arrivées à échéance — ${zoneRelance.length}`} muted>
+          {zoneRelance.map((vm) => (
+            <ProspectCard key={vm.companyId} vm={vm} />
+          ))}
+        </Section>
+      )}
 
       {/* ZONE B — J'ai du temps */}
       <Section

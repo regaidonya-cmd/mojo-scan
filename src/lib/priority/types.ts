@@ -8,6 +8,14 @@ export type Temperature = 'FROID' | 'TIEDE' | 'CHAUD'
 export type Priorite = 'STOP' | 'P0' | 'P1' | 'P2' | 'P3' | 'P4'
 export type PipelineStage = 'A_CONTACTER' | 'EN_DISCUSSION' | 'RDV' | 'PROPOSITION' | 'GAGNE' | 'PERDU'
 
+/** P0.7 — Types de prochaine action considérés intrinsèquement urgents :
+ * seuls ceux-ci peuvent faire remonter un prospect en priorité P0 une fois
+ * leur échéance atteinte. NURTURE/WAIT dus n'en font JAMAIS partie, quelle
+ * que soit leur échéance — source unique partagée entre engine.ts
+ * (calcul de priorité) et activite-consequence.ts (calcul du résultat). */
+export const NEXT_ACTION_URGENT_TYPES = new Set(['CALLBACK', 'FOLLOW_UP', 'PREPARE_MEETING'])
+export const NEXT_ACTION_RELANCE_TYPES = new Set(['NURTURE', 'WAIT'])
+
 export type NBAType =
   | 'CALL'
   | 'EMAIL'
@@ -98,6 +106,14 @@ export interface ProspectInput {
 
   // Événements commerciaux, triés du plus ancien au plus récent
   events: CommercialEvent[]
+
+  // P0.7 — Source de vérité persistée (prospects_sales). Optionnels et
+  // rétrocompatibles : absents/null = comportement P0.5/P0.6 inchangé
+  // (température recalculée depuis events, priorité purement structurelle).
+  // Quand fournis, ils font autorité et ne sont jamais recalculés/écrasés
+  // silencieusement par le moteur — cf. modèle de source de vérité P0.7A.
+  persistedTemperature?: Temperature | null
+  persistedNextAction?: { type: string; dueAt: string | null; reason: string } | null
 
   now: string // ISO date — injecté, jamais Date.now() interne (déterminisme/testabilité)
 }

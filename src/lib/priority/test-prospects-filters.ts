@@ -20,6 +20,9 @@ function vm(overrides: Partial<ProspectViewModel>): ProspectViewModel {
     interlocuteur: { nom: 'LAKS', prenom: '', type: 'telephone', value: '0178541237' },
     telephoneAffichable: '0178541237',
     emailAffichable: null,
+    persistedNextActionType: null,
+    persistedNextActionDueAt: null,
+    persistedNextActionReason: null,
     ...overrides,
   }
 }

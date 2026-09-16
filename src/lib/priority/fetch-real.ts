@@ -37,6 +37,10 @@ export interface ProspectViewModel {
   interlocuteur: { nom: string; prenom: string; type: string; value: string } | null
   telephoneAffichable: string | null // premier téléphone AUTORISÉ trouvé, jamais une valeur opposée
   emailAffichable: string | null // idem pour email
+  // P0.7 — lecture pure des champs persistés (source de vérité), jamais recalculés ici
+  persistedNextActionType: string | null
+  persistedNextActionDueAt: string | null
+  persistedNextActionReason: string | null
 }
 
 // P0.6C-FIX.1 : la sensibilité est désormais déterminée PAR FAIT
@@ -59,9 +63,20 @@ export async function fetchMaJourneeData(): Promise<ProspectViewModel[]> {
   // 1. Les 66 prospects + entreprise + qualification
   const { data: prospects } = await supabase
     .from('prospects_sales')
-    .select('company_id, pipeline_stage')
+    .select('company_id, pipeline_stage, temperature, next_action_type, next_action_due_at, next_action_reason')
   const companyIds = (prospects ?? []).map((p: any) => p.company_id)
   const pipelineByCompany = new Map((prospects ?? []).map((p: any) => [p.company_id, p.pipeline_stage]))
+  const persistedStateByCompany = new Map(
+    (prospects ?? []).map((p: any) => [
+      p.company_id,
+      {
+        temperature: p.temperature ?? null,
+        nextActionType: p.next_action_type ?? null,
+        nextActionDueAt: p.next_action_due_at ?? null,
+        nextActionReason: p.next_action_reason ?? null,
+      },
+    ])
+  )
 
   const { data: companies } = await supabase
     .from('companies')
@@ -211,20 +226,28 @@ export async function fetchMaJourneeData(): Promise<ProspectViewModel[]> {
 
     const hasReliableAngle = faits.some((f) => f.sensibilite === 'UTILISABLE_DANS_ACCROCHE')
 
+    const persisted = persistedStateByCompany.get(companyId) ?? {
+      temperature: null, nextActionType: null, nextActionDueAt: null, nextActionReason: null,
+    }
+
     const input: ProspectInput = {
       companyId,
       companyName: company.name,
       fitCible: qual?.fit_cible ?? 'INCONNU',
       preuveMetier: qual?.preuve_metier ?? 'A_VERIFIER',
       proximiteLocale: true, // collecte P0.2B limitée à 20km, cf P0.5B.2
-      pipelineStage: 'A_CONTACTER',
+      pipelineStage: (pipelineByCompany.get(companyId) as any) ?? 'A_CONTACTER',
       contactMethods,
       hasReliableAngle,
       angleSource: hasReliableAngle ? faits.find((f) => f.sensibilite === 'UTILISABLE_DANS_ACCROCHE')!.texte : '',
       globalOppositionActive: oppEntrepriseGlobale.has(companyId),
       isLostDefinitive: false,
       isWon: false,
-      events: [],
+      events: [], // P0.7B : activites=0 ligne en base actuellement, aucun événement réel à ce jour
+      persistedTemperature: persisted.temperature,
+      persistedNextAction: persisted.nextActionType
+        ? { type: persisted.nextActionType, dueAt: persisted.nextActionDueAt, reason: persisted.nextActionReason ?? '' }
+        : null,
       now: nowIso,
     }
 
@@ -266,6 +289,9 @@ export async function fetchMaJourneeData(): Promise<ProspectViewModel[]> {
       interlocuteur,
       telephoneAffichable,
       emailAffichable,
+      persistedNextActionType: persisted.nextActionType,
+      persistedNextActionDueAt: persisted.nextActionDueAt,
+      persistedNextActionReason: persisted.nextActionReason,
     })
   }
 
@@ -277,4 +303,35 @@ export async function fetchSingleProspect(companyId: string): Promise<ProspectVi
   // À revoir avant scale (requête ciblée par company_id) — cf. limites P0.6B.
   const all = await fetchMaJourneeData()
   return all.find((v) => v.companyId === companyId) ?? null
+}
+
+export interface HistoriqueEvent {
+  id: string
+  dateEvenement: string
+  type: string | null
+  resultat: string | null
+  description: string | null
+}
+
+/**
+ * P0.7 — Historique commercial réel du prospect. Lit `activites`
+ * directement (0 ligne aujourd'hui en base, tant qu'aucune écriture
+ * réelle n'a eu lieu) — retourne un tableau vide plutôt qu'un faux
+ * historique inventé.
+ */
+export async function fetchHistorique(companyId: string): Promise<HistoriqueEvent[]> {
+  const supabase = supabaseServer()
+  const { data } = await supabase
+    .from('activites')
+    .select('id, date_evenement, type, description')
+    .eq('company_id', companyId)
+    .order('date_evenement', { ascending: false })
+
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    dateEvenement: r.date_evenement,
+    type: r.type,
+    resultat: r.resultat ?? null, // colonne absente tant que la migration P0.7 n'est pas appliquée -> toujours null
+    description: r.description,
+  }))
 }

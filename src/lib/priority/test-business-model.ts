@@ -254,6 +254,22 @@ import { sanitizeFaitTexte, buildFaitCommercial } from './business-model'
   t('29. raisonMaintenant = texteAffichable (pas le texte brut complet)', bm.raisonMaintenant === fait.texteAffichable)
 }
 
+// 30. [P0.7B-FIX] Opposition MOYEN (telephone) n'affecte JAMAIS l'email
+// autorise de la meme personne — simule le resultat d'une ecriture
+// MOYEN scope (telephone.allowed=false) suivie d'une lecture fetch-real.ts
+{
+  const input = base({
+    contactMethods: [
+      contact({ contactMethodId: 'tel1', type: 'telephone', personneId: 'pX', allowed: false }), // MOYEN oppose
+      contact({ contactMethodId: 'email1', type: 'email', value: 'x@y.fr', personneId: 'pX', allowed: true }), // jamais touche
+    ],
+  })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [faitUsable])
+  t('30. telephone oppose (MOYEN) -> email de la meme personne reste utilisable', bm.contactabilite !== 'BLOQUEE')
+  t('30. NBA reste actionnable via email (pas NO_ACTION)', bm.uiNba !== 'NO_ACTION' && bm.uiNba !== 'NO_ACTION_TEMPORAIRE')
+}
+
 console.log('')
 const passed = results.filter((r) => r.pass).length
 console.log(`${passed}/${results.length} tests passes`)
