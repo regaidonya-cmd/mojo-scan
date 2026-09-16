@@ -21,6 +21,13 @@ export type UiNba =
   | 'CALL' | 'EMAIL' | 'QUALIFY' | 'ENRICH' | 'PREPARE_RDV' | 'FOLLOW_UP'
   | 'SEND_PROPOSAL' | 'WAIT' | 'NURTURE' | 'NO_ACTION' | 'NO_ACTION_TEMPORAIRE'
 
+export interface DisplayNba {
+  type: string
+  dueAt: string | null
+  reason: string
+  source: 'PERSISTE' | 'STRUCTUREL'
+}
+
 export interface BusinessModelResult {
   contactabilite: Contactabilite
   connaissance: Connaissance
@@ -30,7 +37,8 @@ export interface BusinessModelResult {
   raisonMaintenant: string
   raisonLabel: 'Pourquoi maintenant ?' | 'Pourquoi ce prospect ?'
   angleApproche: string
-  uiNba: UiNba
+  uiNba: UiNba // NBA structurel seul (armement/contactabilité) — conservé pour usage interne
+  displayNba: DisplayNba // P0.7D-FIX.5 — NBA à AFFICHER, source de vérité unique pour toutes les vues
 }
 
 /**
@@ -302,6 +310,38 @@ export function classifySiteStatutOnly(
   return null // FOUND ou NOT_FOUND seuls : aucun fait différenciant
 }
 
+/**
+ * P0.7D-FIX.5 — Résolution CENTRALISÉE du NBA à afficher, seule source de
+ * vérité pour FICHE PROSPECT / MA JOURNÉE / PROSPECTS. Hiérarchie verrouillée :
+ * 1. STOP/opposition -> priorité absolue ;
+ * 2. action commerciale persistée pertinente (next_action_type != NO_ACTION,
+ *    != null) -> restituée telle quelle, avec sa date si elle existe ;
+ * 3. sinon -> NBA structurel calculé (uiNba).
+ * N'affecte JAMAIS la priorité (P0/P1/P2/P3/P4, toujours calculée par
+ * engine.ts séparément) ni la température — uniquement l'affichage du NBA.
+ */
+function computeDisplayNba(
+  priorite: string,
+  contactabilite: Contactabilite,
+  persistedNextAction: { type: string; dueAt: string | null; reason: string } | null | undefined,
+  uiNba: UiNba
+): DisplayNba {
+  if (priorite === 'STOP' || contactabilite === 'BLOQUEE') {
+    return { type: 'STOP', dueAt: null, reason: 'Opposition active — aucune action commerciale possible', source: 'STRUCTUREL' }
+  }
+  // P0.7D-FIX.5 — les 66 prospects réels portent tous un leftover de
+  // l'import P0.3D original (next_action_type='CALL', reason='Import
+  // pilote P0.3D'), jamais une décision commerciale P0.7 réelle. Ce
+  // leftover n'est PAS une action persistée pertinente et ne doit jamais
+  // supplanter le NBA structurel — seule une action réellement produite
+  // par le flux P0.7 (résultat d'appel enregistré) est restituée ici.
+  const estLeftoverImport = persistedNextAction?.reason === 'Import pilote P0.3D'
+  if (persistedNextAction && persistedNextAction.type && persistedNextAction.type !== 'NO_ACTION' && !estLeftoverImport) {
+    return { type: persistedNextAction.type, dueAt: persistedNextAction.dueAt, reason: persistedNextAction.reason, source: 'PERSISTE' }
+  }
+  return { type: uiNba, dueAt: null, reason: '', source: 'STRUCTUREL' }
+}
+
 export function evaluateBusinessModel(
   input: ProspectInput,
   engineResult: CommercialPriorityResult,
@@ -327,9 +367,10 @@ export function evaluateBusinessModel(
   const raisonLabel = computeRaisonLabel(engineResult.priorite)
   const angleApproche = computeAngleApproche(armement, faitPrincipal)
   const uiNba = computeUiNba(engineResult.nextBestAction.type, contactabilite, armement)
+  const displayNba = computeDisplayNba(engineResult.priorite, contactabilite, input.persistedNextAction, uiNba)
 
   return {
     contactabilite, connaissance, armement, ready, faitPrincipal,
-    raisonMaintenant, raisonLabel, angleApproche, uiNba,
+    raisonMaintenant, raisonLabel, angleApproche, uiNba, displayNba,
   }
 }

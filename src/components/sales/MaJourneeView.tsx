@@ -96,8 +96,8 @@ export function MaJourneeView({ data }: { data: MaJourneeClassification }) {
 }
 
 function summarizeAPreparer(items: MaJourneeClassification['aPreparer']): string {
-  const qualify = items.filter((v) => v.business.uiNba === 'QUALIFY').length
-  const enrich = items.filter((v) => v.business.uiNba === 'ENRICH').length
+  const qualify = items.filter((v) => v.business.displayNba.type === 'QUALIFY').length
+  const enrich = items.filter((v) => v.business.displayNba.type === 'ENRICH').length
   const other = items.length - qualify - enrich
   const parts: string[] = []
   if (enrich > 0) parts.push(`${enrich} à enrichir`)
@@ -163,7 +163,12 @@ function PreparerRow({ vm }: { vm: MaJourneeClassification['aPreparer'][number] 
     QUALIFY: 'À qualifier',
     ENRICH: 'À vérifier / enrichir',
     NO_ACTION_TEMPORAIRE: 'Aucun canal disponible',
+    CALLBACK: 'Rappeler',
+    FOLLOW_UP: 'Relancer',
+    PREPARE_MEETING: 'Préparer RDV',
+    NURTURE: 'Relancer ultérieurement',
   }
+  const nba = vm.business.displayNba
   return (
     <div
       style={{
@@ -176,7 +181,10 @@ function PreparerRow({ vm }: { vm: MaJourneeClassification['aPreparer'][number] 
       }}
     >
       <span style={{ color: DS.text, fontWeight: 600 }}>{vm.companyName}</span>
-      <span style={{ color: DS.muted }}>{label[vm.business.uiNba] ?? vm.business.uiNba}</span>
+      <span style={{ color: DS.muted }}>
+        {label[nba.type] ?? nba.type}
+        {nba.dueAt && ` — ${new Date(nba.dueAt).toLocaleDateString('fr-FR')}`}
+      </span>
     </div>
   )
 }

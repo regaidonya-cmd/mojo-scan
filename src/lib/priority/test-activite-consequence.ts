@@ -1,4 +1,4 @@
-import { computeConsequence, NEXT_ACTION_URGENT_TYPES, NEXT_ACTION_RELANCE_TYPES } from './activite-consequence'
+import { computeConsequence, NEXT_ACTION_URGENT_TYPES, NEXT_ACTION_RELANCE_TYPES, type ResultatAppel } from './activite-consequence'
 
 const results: { name: string; pass: boolean }[] = []
 function t(name: string, pass: boolean) {

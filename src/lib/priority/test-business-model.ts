@@ -270,6 +270,91 @@ import { sanitizeFaitTexte, buildFaitCommercial } from './business-model'
   t('30. NBA reste actionnable via email (pas NO_ACTION)', bm.uiNba !== 'NO_ACTION' && bm.uiNba !== 'NO_ACTION_TEMPORAIRE')
 }
 
+// ── P0.7D-FIX.5 : résolution centralisée du NBA affiché ──
+// 31. CALLBACK futur supplante ENRICH structurel
+{
+  const input = base({ persistedNextAction: { type: 'CALLBACK', dueAt: '2026-12-01T00:00:00Z', reason: 'Rappel proposé' } })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, []) // aucun fait -> uiNba structurel serait ENRICH
+  t('31. CALLBACK futur persisté supplante ENRICH structurel', bm.displayNba.type === 'CALLBACK')
+  t('31. uiNba structurel reste ENRICH en interne (non affiché en principal)', bm.uiNba === 'ENRICH')
+}
+// 32. Date/heure persistée restituée
+{
+  const input = base({ persistedNextAction: { type: 'CALLBACK', dueAt: '2026-09-21T11:06:00.000Z', reason: 'x' } })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('32. date persistée restituée telle quelle', bm.displayNba.dueAt === '2026-09-21T11:06:00.000Z')
+}
+// 33. FOLLOW_UP persisté supplante un NBA structurel
+{
+  const input = base({ persistedNextAction: { type: 'FOLLOW_UP', dueAt: '2026-12-01T00:00:00Z', reason: 'x' } })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('33. FOLLOW_UP persisté devient displayNba principal', bm.displayNba.type === 'FOLLOW_UP' && bm.displayNba.source === 'PERSISTE')
+}
+// 34. PREPARE_MEETING persisté restitué
+{
+  const input = base({ persistedNextAction: { type: 'PREPARE_MEETING', dueAt: '2026-09-24T09:00:00Z', reason: 'x' } })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('34. PREPARE_MEETING persisté restitué', bm.displayNba.type === 'PREPARE_MEETING')
+}
+// 35. NURTURE futur n'entre pas dans l'urgence (priorite reste non-P0, deja teste engine ; ici on verifie le NBA est quand meme affiche)
+{
+  const input = base({ persistedNextAction: { type: 'NURTURE', dueAt: '2026-12-01T00:00:00Z', reason: 'x' } })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('35. NURTURE futur affiché comme NBA, priorite non forcee a P0', bm.displayNba.type === 'NURTURE' && r.priorite !== 'P0')
+}
+// 36. NO_ACTION n'affiche pas une fausse action -> fallback structurel
+{
+  const input = base({ persistedNextAction: { type: 'NO_ACTION', dueAt: null, reason: 'x' } })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('36. NO_ACTION persisté -> fallback sur NBA structurel, jamais affiche tel quel', bm.displayNba.type !== 'NO_ACTION' && bm.displayNba.source === 'STRUCTUREL')
+}
+// 37. Absence de NBA persisté -> fallback structurel
+{
+  const input = base({ persistedNextAction: null })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [faitUsable])
+  t('37. aucun NBA persisté -> fallback structurel (CALL ici)', bm.displayNba.source === 'STRUCTUREL' && bm.displayNba.type === bm.uiNba)
+}
+// 38. STOP/opposition reste prioritaire meme avec une action persistee
+{
+  const input = base({ globalOppositionActive: true, persistedNextAction: { type: 'CALLBACK', dueAt: '2026-12-01T00:00:00Z', reason: 'x' } })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('38. STOP/opposition prime toujours sur une action persistee', bm.displayNba.type === 'STOP')
+}
+// 39. Cas de recette exact : PAS_DE_REPONSE + callback futur -> FROID/A_CONTACTER/P3 preserves
+{
+  const input = base({
+    persistedTemperature: null,
+    persistedNextAction: { type: 'CALLBACK', dueAt: '2026-09-21T11:06:00.000Z', reason: 'Aucune réponse à cette tentative — rappel proposé' },
+  })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('39. cas recette : temperature FROID (par defaut, non modifiee)', r.temperature === 'FROID')
+  t('39. cas recette : priorite P3 (echeance future, pas encore due)', r.priorite === 'P3')
+  t('39. cas recette : displayNba = CALLBACK avec date exacte', bm.displayNba.type === 'CALLBACK' && bm.displayNba.dueAt === '2026-09-21T11:06:00.000Z')
+}
+
+// 40. [P0.7D-FIX.5 correctif] leftover import P0.3D (CALL/reason="Import pilote P0.3D")
+// -> JAMAIS restitue comme action persistee pertinente, fallback structurel
+// (cas reel des 66 prospects non touches par P0.7)
+{
+  const input = base()
+  const r = evaluateProspect(input)
+  const bmSansFait = evaluateBusinessModel(
+    { ...input, persistedNextAction: { type: 'CALL', dueAt: null, reason: 'Import pilote P0.3D' } },
+    r, []
+  )
+  t('40. leftover import P0.3D -> fallback structurel, jamais restitue tel quel', bmSansFait.displayNba.source === 'STRUCTUREL')
+  t('40. leftover import P0.3D -> displayNba = uiNba structurel', bmSansFait.displayNba.type === bmSansFait.uiNba)
+}
+
 console.log('')
 const passed = results.filter((r) => r.pass).length
 console.log(`${passed}/${results.length} tests passes`)

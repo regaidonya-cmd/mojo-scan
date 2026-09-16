@@ -9,8 +9,10 @@ const PIPELINE_LABEL: Record<string, string> = {
 }
 const NBA_LABEL: Record<string, string> = {
   CALL: 'Appeler', EMAIL: 'Envoyer un email', QUALIFY: 'Qualifier', ENRICH: 'Vérifier / enrichir',
-  FOLLOW_UP: 'Relancer', PREPARE_RDV: 'Préparer le RDV', SEND_PROPOSAL: 'Envoyer une proposition',
-  WAIT: 'Attendre', NURTURE: 'Nurture', NO_ACTION: 'Aucune action', NO_ACTION_TEMPORAIRE: 'Aucune action pour le moment',
+  FOLLOW_UP: 'Relancer', PREPARE_RDV: 'Préparer le RDV', PREPARE_MEETING: 'Préparer le RDV',
+  SEND_PROPOSAL: 'Envoyer une proposition', CALLBACK: 'Rappeler',
+  WAIT: 'Attendre', NURTURE: 'Relancer ultérieurement', NO_ACTION: 'Aucune action', NO_ACTION_TEMPORAIRE: 'Aucune action pour le moment',
+  STOP: 'Aucune action possible',
 }
 
 export function FicheProspectView({ vm, historique }: { vm: ProspectViewModel; historique: HistoriqueEvent[] }) {
@@ -93,9 +95,11 @@ export function FicheProspectView({ vm, historique }: { vm: ProspectViewModel; h
         {emailAffichable && <Row label="Email autorisé" value={emailAffichable} />}
       </Section>
 
-      {/* NBA — lien tel: reel uniquement si telephone autorise ; sinon information seule */}
+      {/* NBA — lien tel: reel uniquement si telephone autorise ET action = CALL ;
+          sinon information seule (P0.7D-FIX.5 : displayNba = source unique,
+          priorite a une action commerciale persistee pertinente) */}
       <Section title="Prochaine action recommandée">
-        {business.uiNba === 'CALL' && telephoneAffichable ? (
+        {business.displayNba.type === 'CALL' && telephoneAffichable ? (
           <a
             href={`tel:${telephoneAffichable.replace(/\s/g, '')}`}
             style={{
@@ -107,11 +111,20 @@ export function FicheProspectView({ vm, historique }: { vm: ProspectViewModel; h
           </a>
         ) : (
           <div style={{ display: 'inline-block', padding: '10px 20px', borderRadius: DS.rMd, background: DS.lav, color: DS.violet, fontWeight: 700, fontSize: 14 }}>
-            {NBA_LABEL[business.uiNba] ?? business.uiNba}
+            {NBA_LABEL[business.displayNba.type] ?? business.displayNba.type}
+            {business.displayNba.dueAt && (
+              <span style={{ fontWeight: 500 }}> — {new Date(business.displayNba.dueAt).toLocaleString('fr-FR')}</span>
+            )}
           </div>
         )}
+        {business.displayNba.source === 'PERSISTE' && (
+          <p style={{ fontSize: 12, color: DS.muted, marginTop: 6 }}>{business.displayNba.reason}</p>
+        )}
+        {business.displayNba.source === 'STRUCTUREL' && business.displayNba.type !== business.uiNba && (
+          <p style={{ fontSize: 11.5, color: DS.subtle, marginTop: 6 }}>NBA structurel (info interne) : {NBA_LABEL[business.uiNba] ?? business.uiNba}</p>
+        )}
         <p style={{ fontSize: 12.5, color: DS.muted, marginTop: 10 }}>
-          {business.uiNba === 'CALL' && telephoneAffichable
+          {business.displayNba.type === 'CALL' && telephoneAffichable
             ? "Le lien ouvre votre application téléphone — aucun appel n'est déclenché automatiquement, aucune donnée n'est écrite."
             : "Aucune action n'est déclenchée automatiquement depuis cette page."}
         </p>
