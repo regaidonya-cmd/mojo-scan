@@ -197,16 +197,18 @@ export async function fetchMaJourneeData(): Promise<ProspectViewModel[]> {
         if (!type || !value) continue
         const moyenOppose = oppMoyen.has(c.moyen_contact_id)
         const canalBloque = canauxBloquesEntreprise.has(type)
+        const allowed = !personneOpposee && !moyenOppose && !canalBloque
+        const blockedScope = personneOpposee ? 'PERSONNE' : (moyenOppose || canalBloque) ? 'MOYEN' : undefined
         contactMethods.push({
-          contactMethodId: c.id,
+          contactMethodId: c.moyen_contact_id,
           type,
           value,
           personneId: p.id,
           personneNom: p.nom,
           personnePrenom: p.prenom,
           nominatif: true,
-          allowed: !personneOpposee && !moyenOppose && !canalBloque,
-          blockedScope: personneOpposee ? 'PERSONNE' : (moyenOppose || canalBloque) ? 'MOYEN' : undefined,
+          allowed,
+          blockedScope,
         })
       }
     }
