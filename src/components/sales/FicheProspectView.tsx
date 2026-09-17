@@ -3,6 +3,7 @@ import { DS } from '@/lib/ds/tokens'
 import type { ProspectViewModel, HistoriqueEvent } from '@/lib/priority/fetch-real'
 import { ResultatAppelForm } from './ResultatAppelForm'
 import { formatDateHeureFr, formatDateFr } from '@/lib/priority/format-date-fr'
+import { getStatutBadgeLabel, getRaisonAffichee, peutEnregistrerResultat } from '@/lib/priority/fiche-presentation'
 
 const PIPELINE_LABEL: Record<string, string> = {
   A_CONTACTER: 'À contacter', EN_DISCUSSION: 'En discussion', RDV: 'RDV',
@@ -38,7 +39,10 @@ export function FicheProspectView({ vm, historique }: { vm: ProspectViewModel; h
         <Chip label={`Température : ${engine.temperature}`} />
         <Chip label={`Priorité : ${engine.priorite}`} />
         <Chip label={`Pipeline : ${PIPELINE_LABEL[pipelineStage] ?? pipelineStage}`} />
-        {business.ready ? <Chip label="READY" filled /> : <Chip label="À préparer" muted />}
+        {(() => {
+          const badge = getStatutBadgeLabel(engine.priorite, business.ready)
+          return <Chip label={badge.label} filled={badge.filled} muted={badge.muted} />
+        })()}
       </div>
 
       {/* Contactabilité / Connaissance / Armement */}
@@ -48,9 +52,14 @@ export function FicheProspectView({ vm, historique }: { vm: ProspectViewModel; h
         <Row label="Armement" value={business.armement} />
       </Section>
 
-      {/* Pourquoi maintenant / ce prospect — wording conditionné à la priorité réelle */}
-      <Section title={business.raisonLabel}>
-        <p style={{ fontSize: 14, color: DS.text, lineHeight: 1.5, margin: 0 }}>{business.raisonMaintenant}</p>
+      {/* Pourquoi maintenant / ce prospect — wording conditionné à la priorité réelle.
+          P0.7E : pour STOP/TERMINE, texte de présentation dédié — ne modifie
+          jamais business.raisonMaintenant (règle métier inchangée), seul
+          l'affichage est adapté ici. */}
+      <Section title={engine.priorite === 'STOP' || engine.priorite === 'TERMINE' ? 'Statut' : business.raisonLabel}>
+        <p style={{ fontSize: 14, color: DS.text, lineHeight: 1.5, margin: 0 }}>
+          {getRaisonAffichee(engine.priorite, business.raisonMaintenant)}
+        </p>
       </Section>
 
       {/* FAIT OBSERVÉ — ce que nous savons réellement, sourcé */}
@@ -121,19 +130,22 @@ export function FicheProspectView({ vm, historique }: { vm: ProspectViewModel; h
         {business.displayNba.source === 'PERSISTE' && (
           <p style={{ fontSize: 12, color: DS.muted, marginTop: 6 }}>{business.displayNba.reason}</p>
         )}
-        {business.displayNba.source === 'STRUCTUREL' && business.displayNba.type !== business.uiNba && (
-          <p style={{ fontSize: 11.5, color: DS.subtle, marginTop: 6 }}>NBA structurel (info interne) : {NBA_LABEL[business.uiNba] ?? business.uiNba}</p>
-        )}
         <p style={{ fontSize: 12.5, color: DS.muted, marginTop: 10 }}>
           {business.displayNba.type === 'CALL' && telephoneAffichable
             ? "Le lien ouvre votre application téléphone — aucun appel n'est déclenché automatiquement, aucune donnée n'est écrite."
             : "Aucune action n'est déclenchée automatiquement depuis cette page."}
         </p>
-        <ResultatAppelForm
-          companyId={vm.companyId}
-          personneId={engine.selectedContact?.personneId ?? null}
-          moyenContactId={engine.selectedContact?.contactMethodId ?? null}
-        />
+        {!peutEnregistrerResultat(engine.priorite) ? (
+          <p style={{ fontSize: 13, color: DS.muted, fontStyle: 'italic', marginTop: 10 }}>
+            Prospection arrêtée — aucune action commerciale autorisée.
+          </p>
+        ) : (
+          <ResultatAppelForm
+            companyId={vm.companyId}
+            personneId={engine.selectedContact?.personneId ?? null}
+            moyenContactId={engine.selectedContact?.contactMethodId ?? null}
+          />
+        )}
       </Section>
 
       {/* P0.7 — Historique commercial réel. Vide tant qu'aucune écriture
