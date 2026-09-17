@@ -105,7 +105,7 @@ t('H. opposition entreprise globale explicite : STOP', computeConsequence({ resu
   const c = computeConsequence({ resultat: 'DEMANDE_NE_PLUS_CONTACTER', now: NOW, oppositionScope: 'ENTREPRISE' })
   t('11c. Portée ENTREPRISE -> oppositionScope=ENTREPRISE transmis tel quel', c.oppositionScope === 'ENTREPRISE')
   t('11c. Portée ENTREPRISE -> SEULE portée entraînant STOP', c.isStop === true)
-  t('11c. Portée ENTREPRISE -> pipeline devient PERDU', c.pipelineStage === 'PERDU')
+  t('11c. Portée ENTREPRISE -> pipeline JAMAIS modifié (P0.7D-FIX.10, concept distinct d\'OPPORTUNITE_CLOTUREE)', c.pipelineStage === null)
 }
 
 // ── Non-escalade : PERSONNE/MOYEN ne doivent jamais impliquer ENTREPRISE ──
@@ -180,6 +180,27 @@ t('26. [architecture] idempotencyKey stable par session de saisie (useState lazy
 // simple selection d'un resultat (onClick de chaque bouton resultat ne fait
 // que setResultat(r), jamais d'appel reseau) -> aucune ecriture avant Valider.
 t('27. [architecture] selection resultat = setState local uniquement, aucun fetch()', true)
+
+// ── P0.7D-FIX.10 : DNC ne modifie jamais le pipeline, seul OPPORTUNITE_CLOTUREE le fait ──
+{
+  const c = computeConsequence({ resultat: 'DEMANDE_NE_PLUS_CONTACTER', now: NOW, oppositionScope: 'ENTREPRISE' })
+  t('43. DNC ENTREPRISE -> pipelineStage=null (jamais PERDU)', c.pipelineStage === null)
+  t('43. DNC ENTREPRISE -> isStop=true (STOP toujours via isStop, pas via pipeline)', c.isStop === true)
+}
+{
+  const c = computeConsequence({ resultat: 'DEMANDE_NE_PLUS_CONTACTER', now: NOW, oppositionScope: 'PERSONNE' })
+  t('44. DNC PERSONNE -> pipelineStage=null', c.pipelineStage === null)
+  t('44. DNC PERSONNE -> jamais STOP global', c.isStop === false)
+}
+{
+  const c = computeConsequence({ resultat: 'DEMANDE_NE_PLUS_CONTACTER', now: NOW, oppositionScope: 'MOYEN' })
+  t('45. DNC MOYEN -> pipelineStage=null', c.pipelineStage === null)
+  t('45. DNC MOYEN -> jamais STOP global', c.isStop === false)
+}
+{
+  const c = computeConsequence({ resultat: 'OPPORTUNITE_CLOTUREE', now: NOW })
+  t('46. OPPORTUNITE_CLOTUREE -> pipelineStage=PERDU inchange (non affecte par FIX.10)', c.pipelineStage === 'PERDU')
+}
 
 console.log('')
 const passed = results.filter((r) => r.pass).length

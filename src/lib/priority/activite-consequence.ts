@@ -233,7 +233,7 @@ export function computeConsequence(input: ConsequenceInput): Consequence {
         eventKind: 'NEGATIVE_REPLY',
         eventDueAt: null,
         temperature: null,
-        pipelineStage: input.oppositionScope === 'ENTREPRISE' ? 'PERDU' : null,
+        pipelineStage: null, // P0.7D-FIX.10 — jamais de PERDU pour un DNC : concept distinct d'OPPORTUNITE_CLOTUREE. Le pipeline existant (quel qu'il soit) reste conservé, le STOP passe exclusivement par isStop/globalOppositionActive.
         nextActionType: 'NO_ACTION',
         nextActionDueAt: null,
         nextActionReason: 'Demande explicite de ne plus être contacté',
