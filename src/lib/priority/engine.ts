@@ -137,6 +137,19 @@ export function computePriorite(
     return { priorite: 'STOP', whyNow: ['Marqué perdu définitif'] }
   }
 
+  // P0.7D-FIX.7 — Opportunité commerciale TERMINALE (PERDU/GAGNE) : jamais
+  // une opposition (STOP réservé aux exclusions/oppositions globales), et
+  // jamais présentée comme un prospect actif P0-P4. Réactivable plus tard
+  // via un nouveau pipeline/nouvelle opportunité — ce n'est PAS une
+  // exclusion commerciale permanente, juste "rien à faire maintenant sur
+  // CETTE opportunité close".
+  if (input.pipelineStage === 'PERDU' || input.pipelineStage === 'GAGNE') {
+    return {
+      priorite: 'TERMINE',
+      whyNow: [input.pipelineStage === 'PERDU' ? 'Opportunité clôturée (perdue)' : 'Opportunité clôturée (gagnée)'],
+    }
+  }
+
   // Client existant (GAGNE) : hors prospection froide, mais ce n'est
   // PAS une interdiction commerciale — on utilise P4 pour l'exclure des
   // flux de prospection sans le confondre avec une opposition/refus.

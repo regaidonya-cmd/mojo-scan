@@ -355,6 +355,58 @@ import { sanitizeFaitTexte, buildFaitCommercial } from './business-model'
   t('40. leftover import P0.3D -> displayNba = uiNba structurel', bmSansFait.displayNba.type === bmSansFait.uiNba)
 }
 
+// 29. [P0.7D-FIX.7] PERDU + NO_ACTION + structure ENRICH -> NO_ACTION, priorite TERMINE
+{
+  const input = base({ pipelineStage: 'PERDU', persistedNextAction: { type: 'NO_ACTION', dueAt: null, reason: 'Opportunité clôturée' } })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, []) // aucun fait -> armement structurel serait INSUFFISANT/ENRICH sans le correctif
+  t('29. PERDU+NO_ACTION -> priorite TERMINE (pas P0-P4, pas STOP)', r.priorite === 'TERMINE')
+  t('29. PERDU+NO_ACTION -> displayNba=NO_ACTION (jamais ENRICH)', bm.displayNba.type === 'NO_ACTION')
+}
+
+// 30. [P0.7D-FIX.7] PERDU + ancien CALL persisté (leftover) -> NO_ACTION quand meme
+{
+  const input = base({ pipelineStage: 'PERDU', persistedNextAction: { type: 'CALL', dueAt: null, reason: 'Import pilote P0.3D' } })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('30. PERDU + CALL persiste (meme non-NO_ACTION) -> NO_ACTION quand meme (terminal prioritaire)', bm.displayNba.type === 'NO_ACTION')
+  t('30. PERDU + CALL persiste -> priorite TERMINE', r.priorite === 'TERMINE')
+}
+
+// 31. [P0.7D-FIX.7] GAGNE + structure CALL/ENRICH -> NO_ACTION
+{
+  const input = base({ pipelineStage: 'GAGNE', hasReliableAngle: true, angleSource: 'x' })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [faitUsable]) // armement PRET, aurait donne CALL sans le correctif
+  t('31. GAGNE -> priorite TERMINE', r.priorite === 'TERMINE')
+  t('31. GAGNE -> displayNba=NO_ACTION (jamais CALL malgre armement PRET)', bm.displayNba.type === 'NO_ACTION')
+}
+
+// 32. [P0.7D-FIX.7] prospect ACTIF (pipeline normal) + NO_ACTION persiste -> fallback structurel INCHANGE (comportement explicite)
+{
+  const input = base({ pipelineStage: 'A_CONTACTER', persistedNextAction: { type: 'NO_ACTION', dueAt: null, reason: 'Demande explicite de ne plus être contacté' } })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, []) // aucun fait -> uiNba structurel = ENRICH
+  t('32. Prospect actif + NO_ACTION persiste -> fallback structurel (ENRICH), PAS TERMINE', r.priorite !== 'TERMINE')
+  t('32. Prospect actif + NO_ACTION persiste -> displayNba = uiNba structurel (comportement inchange, voulu)', bm.displayNba.type === bm.uiNba && bm.displayNba.source === 'STRUCTUREL')
+}
+
+// 33. [P0.7D-FIX.7] opposition globale -> STOP reste prioritaire sur TERMINE
+{
+  const input = base({ pipelineStage: 'PERDU', globalOppositionActive: true })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('33. Opposition globale + PERDU -> STOP prime (pas TERMINE)', r.priorite === 'STOP')
+  t('33. Opposition globale + PERDU -> displayNba=STOP (pas NO_ACTION generique)', bm.displayNba.type === 'STOP')
+}
+
+// 34. [P0.7D-FIX.7] prospect actif normal -> comportement P0-P4 inchange (non-regression)
+{
+  const input = base({ pipelineStage: 'A_CONTACTER' })
+  const r = evaluateProspect(input)
+  t('34. pipeline actif normal -> priorite P0-P4 normale, jamais TERMINE', r.priorite !== 'TERMINE' && r.priorite !== 'STOP')
+}
+
 console.log('')
 const passed = results.filter((r) => r.pass).length
 console.log(`${passed}/${results.length} tests passes`)

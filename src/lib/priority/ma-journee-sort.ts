@@ -1,7 +1,7 @@
 import type { ProspectViewModel } from './fetch-real'
 import { NEXT_ACTION_RELANCE_TYPES } from './types'
 
-const PRIORITY_ORDER = ['STOP', 'P0', 'P1', 'P2', 'P3', 'P4']
+const PRIORITY_ORDER = ['STOP', 'TERMINE', 'P0', 'P1', 'P2', 'P3', 'P4']
 
 export interface MaJourneeClassification {
   zoneA: ProspectViewModel[] // P0/P1 réels uniquement (engine.ts fait foi, jamais une simple date)
@@ -19,7 +19,7 @@ function isRelanceDue(v: ProspectViewModel, nowIso: string): boolean {
 export function classifyForMaJournee(all: ProspectViewModel[], nowIso: string = new Date().toISOString()): MaJourneeClassification {
   const stop = all.filter((v) => v.engine.priorite === 'STOP')
   const zoneA = all.filter((v) => v.engine.priorite === 'P0' || v.engine.priorite === 'P1')
-  const remaining1 = all.filter((v) => v.engine.priorite !== 'STOP' && v.engine.priorite !== 'P0' && v.engine.priorite !== 'P1')
+  const remaining1 = all.filter((v) => v.engine.priorite !== 'STOP' && v.engine.priorite !== 'TERMINE' && v.engine.priorite !== 'P0' && v.engine.priorite !== 'P1')
 
   // P0.7 §1 — une relance due (NURTURE/WAIT) ne rejoint JAMAIS Zone A, même
   // arrivée à échéance : elle va dans sa propre zone, séparée des urgences.

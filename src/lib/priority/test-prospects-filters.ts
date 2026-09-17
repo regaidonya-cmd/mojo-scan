@@ -35,6 +35,14 @@ const dataset: ProspectViewModel[] = [
   vm({ companyId: 'c5', companyName: 'CHAUD SARL', engine: { ...vm({}).engine, priorite: 'P1', temperature: 'CHAUD' } as any }),
 ]
 
+// Dataset dedie et isole pour les tests TERMINE (P0.7D-FIX.7) — ne modifie
+// jamais le dataset partage ci-dessus (evite de casser les comptages fixes
+// des tests 1-16 deja calibres dessus).
+const datasetTermine: ProspectViewModel[] = [
+  ...dataset,
+  vm({ companyId: 'c6', companyName: 'PERDU SARL', siren: '111222333', pipelineStage: 'PERDU', engine: { ...vm({}).engine, priorite: 'TERMINE' } as any }),
+]
+
 // 1. Recherche entreprise
 t('1. recherche entreprise (insensible casse)', applyFilters(dataset, { ...EMPTY_FILTERS, search: 'axm' }).length === 1)
 // 2. Recherche ville
@@ -73,6 +81,27 @@ t('14. vue rapide READY exclut STOP', !QUICK_VIEWS.find((q) => q.id === 'READY')
 t('15. vue A_RELANCER vide si aucun FOLLOW_UP reel (pas simule)', QUICK_VIEWS.find((q) => q.id === 'A_RELANCER')!.apply(dataset).length === 0)
 // 16. Tri par entreprise
 t('16. tri alphabetique par entreprise', sortProspects(dataset, 'ENTREPRISE')[0].companyName === 'AXM DIAG')
+
+// 17. [P0.7D-FIX.7] TERMINE reste visible dans "Tous"
+t('17. TERMINE visible dans vue Tous', QUICK_VIEWS.find((q) => q.id === 'TOUS')!.apply(datasetTermine).some((v) => v.companyId === 'c6'))
+// 18. TERMINE exclu de READY
+t('18. TERMINE exclu de la vue READY', !QUICK_VIEWS.find((q) => q.id === 'READY')!.apply(datasetTermine).some((v) => v.companyId === 'c6'))
+// 19. TERMINE exclu de CHAUDS
+t('19. TERMINE exclu de la vue CHAUDS', !QUICK_VIEWS.find((q) => q.id === 'CHAUDS')!.apply(datasetTermine).some((v) => v.companyId === 'c6'))
+// 20. TERMINE exclu de A_PREPARER
+t('20. TERMINE exclu de la vue A_PREPARER', !QUICK_VIEWS.find((q) => q.id === 'A_PREPARER')!.apply(datasetTermine).some((v) => v.companyId === 'c6'))
+// 21. TERMINE exclu de A_RELANCER
+t('21. TERMINE exclu de la vue A_RELANCER', !QUICK_VIEWS.find((q) => q.id === 'A_RELANCER')!.apply(datasetTermine).some((v) => v.companyId === 'c6'))
+// 22. Recherche par SIREN retrouve TERMINE
+t('22. recherche SIREN retrouve un prospect TERMINE', applyFilters(datasetTermine, { ...EMPTY_FILTERS, search: '111222333' }).some((v) => v.companyId === 'c6'))
+// 23. Filtre Pipeline=PERDU retrouve TERMINE
+t('23. filtre pipeline PERDU retrouve TERMINE', applyFilters(datasetTermine, { ...EMPTY_FILTERS, pipeline: new Set(['PERDU']) }).some((v) => v.companyId === 'c6'))
+// 24. applyFilters seul (sans quick view) : TERMINE reste present, STOP absent
+{
+  const r = applyFilters(datasetTermine, EMPTY_FILTERS)
+  t('24. applyFilters brut : TERMINE present', r.some((v) => v.companyId === 'c6'))
+  t('24. applyFilters brut : STOP toujours absent', !r.some((v) => v.engine.priorite === 'STOP'))
+}
 
 console.log('')
 const passed = results.filter((r) => r.pass).length

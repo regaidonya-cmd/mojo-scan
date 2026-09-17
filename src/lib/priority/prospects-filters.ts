@@ -20,12 +20,18 @@ export const EMPTY_FILTERS: ProspectsFilters = {
   ville: '',
 }
 
-const PRIORITY_ORDER = ['STOP', 'P0', 'P1', 'P2', 'P3', 'P4']
+const PRIORITY_ORDER = ['STOP', 'TERMINE', 'P0', 'P1', 'P2', 'P3', 'P4']
 
 /**
  * Les prospects STOP sont toujours exclus des listes commerciales normales
  * (§10 P0.6B), sauf demande explicite via la vue "Exclus / oppositions"
  * gérée séparément par l'appelant — cette fonction ne les inclut jamais ici.
+ *
+ * P0.7D-FIX.7 (correctif) — TERMINE (PERDU/GAGNE) N'EST PAS un STOP : ces
+ * dossiers doivent rester consultables dans la base PROSPECTS (vue "Tous",
+ * recherche, filtre Pipeline=PERDU/GAGNE, fiche directe). Seules les FILES
+ * DE TRAVAIL ACTIVES (Ready/Chauds/À préparer/À relancer, et MA JOURNÉE)
+ * les excluent — cf. QUICK_VIEWS ci-dessous, jamais ici.
  */
 export function applyFilters(all: ProspectViewModel[], f: ProspectsFilters): ProspectViewModel[] {
   const base = all.filter((v) => v.engine.priorite !== 'STOP')
@@ -108,16 +114,16 @@ export interface QuickView {
 
 export const QUICK_VIEWS: QuickView[] = [
   { id: 'TOUS', label: 'Tous', apply: (all) => all.filter((v) => v.engine.priorite !== 'STOP') },
-  { id: 'READY', label: 'Ready', apply: (all) => all.filter((v) => v.engine.priorite !== 'STOP' && v.business.ready) },
+  { id: 'READY', label: 'Ready', apply: (all) => all.filter((v) => v.engine.priorite !== 'STOP' && v.engine.priorite !== 'TERMINE' && v.business.ready) },
   {
     id: 'CHAUDS',
     label: 'Chauds',
-    apply: (all) => all.filter((v) => v.engine.priorite !== 'STOP' && v.engine.temperature === 'CHAUD'),
+    apply: (all) => all.filter((v) => v.engine.priorite !== 'STOP' && v.engine.priorite !== 'TERMINE' && v.engine.temperature === 'CHAUD'),
   },
   {
     id: 'A_PREPARER',
     label: 'À préparer',
-    apply: (all) => all.filter((v) => v.engine.priorite !== 'STOP' && !v.business.ready),
+    apply: (all) => all.filter((v) => v.engine.priorite !== 'STOP' && v.engine.priorite !== 'TERMINE' && !v.business.ready),
   },
   // "À relancer" nécessite next_action_due_at/FOLLOW_UP réel — non calculable
   // aujourd'hui (aucun événement réel en base, cf P0.5A/§16). Retourne un

@@ -329,6 +329,13 @@ function computeDisplayNba(
   if (priorite === 'STOP' || contactabilite === 'BLOQUEE') {
     return { type: 'STOP', dueAt: null, reason: 'Opposition active — aucune action commerciale possible', source: 'STRUCTUREL' }
   }
+  // P0.7D-FIX.7 — Opportunité terminale (PERDU/GAGNE) : NO_ACTION obligatoire,
+  // AVANT toute autre logique (y compris une action persistée non-NO_ACTION
+  // resterait affichée sinon si le pipeline a été clôturé après coup — un
+  // dossier clos ne doit JAMAIS afficher CALL/EMAIL/QUALIFY/ENRICH/FOLLOW_UP).
+  if (priorite === 'TERMINE') {
+    return { type: 'NO_ACTION', dueAt: null, reason: 'Opportunité clôturée — dossier clos', source: 'STRUCTUREL' }
+  }
   // P0.7D-FIX.5 — les 66 prospects réels portent tous un leftover de
   // l'import P0.3D original (next_action_type='CALL', reason='Import
   // pilote P0.3D'), jamais une décision commerciale P0.7 réelle. Ce

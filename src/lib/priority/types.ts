@@ -5,7 +5,7 @@
 
 export type Potentiel = 'FORT' | 'MOYEN' | 'FAIBLE'
 export type Temperature = 'FROID' | 'TIEDE' | 'CHAUD'
-export type Priorite = 'STOP' | 'P0' | 'P1' | 'P2' | 'P3' | 'P4'
+export type Priorite = 'STOP' | 'TERMINE' | 'P0' | 'P1' | 'P2' | 'P3' | 'P4'
 export type PipelineStage = 'A_CONTACTER' | 'EN_DISCUSSION' | 'RDV' | 'PROPOSITION' | 'GAGNE' | 'PERDU'
 
 /** P0.7 — Types de prochaine action considérés intrinsèquement urgents :
