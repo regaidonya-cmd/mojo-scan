@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { DS } from '@/lib/ds/tokens'
 import type { MaJourneeClassification } from '@/lib/priority/ma-journee-sort'
 import { ProspectCard } from './ProspectCard'
+import { formatDateFr } from '@/lib/priority/format-date-fr'
 
 const PAGE_SIZE = 10
 
@@ -11,7 +12,7 @@ export function MaJourneeView({ data }: { data: MaJourneeClassification }) {
   const [visible, setVisible] = useState(PAGE_SIZE)
   const [showPreparer, setShowPreparer] = useState(false)
 
-  const { zoneA, zoneBReady, aPreparer } = data
+  const { zoneA, zoneRelance, zoneBReady, aPreparer } = data
   const visibleZoneB = zoneBReady.slice(0, visible)
   const hasMore = zoneBReady.length > visible
 
@@ -39,6 +40,17 @@ export function MaJourneeView({ data }: { data: MaJourneeClassification }) {
           zoneA.map((vm) => <ProspectCard key={vm.companyId} vm={vm} />)
         )}
       </Section>
+
+      {/* P0.7 — RELANCE : action due mais de nature non urgente (NURTURE/WAIT).
+          Jamais mélangée à "À traiter maintenant" — c'est la NATURE de
+          l'action, pas la seule date, qui détermine l'urgence réelle. */}
+      {zoneRelance.length > 0 && (
+        <Section title={`Relances arrivées à échéance — ${zoneRelance.length}`} muted>
+          {zoneRelance.map((vm) => (
+            <ProspectCard key={vm.companyId} vm={vm} />
+          ))}
+        </Section>
+      )}
 
       {/* ZONE B — J'ai du temps */}
       <Section
@@ -85,8 +97,8 @@ export function MaJourneeView({ data }: { data: MaJourneeClassification }) {
 }
 
 function summarizeAPreparer(items: MaJourneeClassification['aPreparer']): string {
-  const qualify = items.filter((v) => v.business.uiNba === 'QUALIFY').length
-  const enrich = items.filter((v) => v.business.uiNba === 'ENRICH').length
+  const qualify = items.filter((v) => v.business.displayNba.type === 'QUALIFY').length
+  const enrich = items.filter((v) => v.business.displayNba.type === 'ENRICH').length
   const other = items.length - qualify - enrich
   const parts: string[] = []
   if (enrich > 0) parts.push(`${enrich} à enrichir`)
@@ -152,7 +164,12 @@ function PreparerRow({ vm }: { vm: MaJourneeClassification['aPreparer'][number] 
     QUALIFY: 'À qualifier',
     ENRICH: 'À vérifier / enrichir',
     NO_ACTION_TEMPORAIRE: 'Aucun canal disponible',
+    CALLBACK: 'Rappeler',
+    FOLLOW_UP: 'Relancer',
+    PREPARE_MEETING: 'Préparer RDV',
+    NURTURE: 'Relancer ultérieurement',
   }
+  const nba = vm.business.displayNba
   return (
     <div
       style={{
@@ -165,7 +182,10 @@ function PreparerRow({ vm }: { vm: MaJourneeClassification['aPreparer'][number] 
       }}
     >
       <span style={{ color: DS.text, fontWeight: 600 }}>{vm.companyName}</span>
-      <span style={{ color: DS.muted }}>{label[vm.business.uiNba] ?? vm.business.uiNba}</span>
+      <span style={{ color: DS.muted }}>
+        {label[nba.type] ?? nba.type}
+        {nba.dueAt && ` — ${formatDateFr(nba.dueAt)}`}
+      </span>
     </div>
   )
 }

@@ -20,15 +20,19 @@ export const EMPTY_FILTERS: ProspectsFilters = {
   ville: '',
 }
 
-const PRIORITY_ORDER = ['STOP', 'P0', 'P1', 'P2', 'P3', 'P4']
+const PRIORITY_ORDER = ['STOP', 'TERMINE', 'P0', 'P1', 'P2', 'P3', 'P4']
 
 /**
- * Les prospects STOP sont toujours exclus des listes commerciales normales
- * (§10 P0.6B), sauf demande explicite via la vue "Exclus / oppositions"
- * gérée séparément par l'appelant — cette fonction ne les inclut jamais ici.
+ * P0.7D-FIX.12 — `base` ne filtre plus rien par défaut : "Tous" doit
+ * contenir absolument tout (STOP et TERMINE inclus), retrouvable par
+ * recherche/filtres explicites. L'exclusion de STOP/TERMINE relève
+ * exclusivement des FILES DE TRAVAIL ACTIVES (Ready/Chauds/À préparer/
+ * À relancer, et MA JOURNÉE ailleurs) — jamais de cette fonction partagée,
+ * ni de la vue "Tous". Si l'utilisateur sélectionne explicitement un
+ * filtre priorité=STOP, il doit pouvoir le retrouver aussi.
  */
 export function applyFilters(all: ProspectViewModel[], f: ProspectsFilters): ProspectViewModel[] {
-  const base = all.filter((v) => v.engine.priorite !== 'STOP')
+  const base = all
 
   const searched = f.search.trim()
     ? base.filter((v) => {
@@ -107,20 +111,25 @@ export interface QuickView {
 }
 
 export const QUICK_VIEWS: QuickView[] = [
-  { id: 'TOUS', label: 'Tous', apply: (all) => all.filter((v) => v.engine.priorite !== 'STOP') },
-  { id: 'READY', label: 'Ready', apply: (all) => all.filter((v) => v.engine.priorite !== 'STOP' && v.business.ready) },
+  // P0.7D-FIX.12 — "Tous" = strictement tout, STOP et TERMINE inclus.
+  { id: 'TOUS', label: 'Tous', apply: (all) => all },
+  { id: 'READY', label: 'Ready', apply: (all) => all.filter((v) => v.engine.priorite !== 'STOP' && v.engine.priorite !== 'TERMINE' && v.business.ready) },
   {
     id: 'CHAUDS',
     label: 'Chauds',
-    apply: (all) => all.filter((v) => v.engine.priorite !== 'STOP' && v.engine.temperature === 'CHAUD'),
+    apply: (all) => all.filter((v) => v.engine.priorite !== 'STOP' && v.engine.priorite !== 'TERMINE' && v.engine.temperature === 'CHAUD'),
   },
   {
     id: 'A_PREPARER',
     label: 'À préparer',
-    apply: (all) => all.filter((v) => v.engine.priorite !== 'STOP' && !v.business.ready),
+    apply: (all) => all.filter((v) => v.engine.priorite !== 'STOP' && v.engine.priorite !== 'TERMINE' && !v.business.ready),
   },
   // "À relancer" nécessite next_action_due_at/FOLLOW_UP réel — non calculable
   // aujourd'hui (aucun événement réel en base, cf P0.5A/§16). Retourne un
   // ensemble vide plutôt que de simuler un contenu : voir rapport §"limites".
-  { id: 'A_RELANCER', label: 'À relancer', apply: (all) => all.filter((v) => v.engine.nextBestAction.type === 'FOLLOW_UP') },
+  {
+    id: 'A_RELANCER',
+    label: 'À relancer',
+    apply: (all) => all.filter((v) => v.engine.priorite !== 'STOP' && v.engine.priorite !== 'TERMINE' && v.engine.nextBestAction.type === 'FOLLOW_UP'),
+  },
 ]

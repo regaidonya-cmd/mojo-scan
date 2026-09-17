@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import crypto from 'crypto'
 import { notFound } from 'next/navigation'
-import { fetchSingleProspect } from '@/lib/priority/fetch-real'
+import { fetchSingleProspect, fetchHistorique } from '@/lib/priority/fetch-real'
 import { SalesNav } from '@/components/sales/SalesNav'
 import { FicheProspectView } from '@/components/sales/FicheProspectView'
 
@@ -36,11 +36,12 @@ export default async function FicheProspectPage({ params }: { params: { companyI
 
   const vm = await fetchSingleProspect(params.companyId)
   if (!vm) notFound()
+  const historique = await fetchHistorique(params.companyId)
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAF8' }}>
       <SalesNav active="prospects" />
-      <FicheProspectView vm={vm} />
+      <FicheProspectView vm={vm} historique={historique} />
     </div>
   )
 }

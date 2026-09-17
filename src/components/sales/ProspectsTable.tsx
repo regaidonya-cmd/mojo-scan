@@ -4,14 +4,16 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { DS } from '@/lib/ds/tokens'
 import type { ProspectViewModel } from '@/lib/priority/fetch-real'
+import { formatDateFr } from '@/lib/priority/format-date-fr'
 import { applyFilters, sortProspects, QUICK_VIEWS, EMPTY_FILTERS, ProspectsFilters, SortKey } from '@/lib/priority/prospects-filters'
 
 const PAGE_SIZE = 25
 
 const NBA_LABEL: Record<string, string> = {
   CALL: 'Appeler', EMAIL: 'Email', QUALIFY: 'Qualifier', ENRICH: 'Enrichir',
-  FOLLOW_UP: 'Relancer', PREPARE_RDV: 'Préparer RDV', SEND_PROPOSAL: 'Proposer',
-  WAIT: 'Attendre', NURTURE: 'Nurture', NO_ACTION: '—', NO_ACTION_TEMPORAIRE: '—',
+  FOLLOW_UP: 'Relancer', PREPARE_RDV: 'Préparer RDV', PREPARE_MEETING: 'Préparer RDV',
+  SEND_PROPOSAL: 'Proposer', CALLBACK: 'Rappeler',
+  WAIT: 'Attendre', NURTURE: 'Relancer ultérieurement', NO_ACTION: '—', NO_ACTION_TEMPORAIRE: '—', STOP: '—',
 }
 const PIPELINE_LABEL: Record<string, string> = {
   A_CONTACTER: 'À contacter', EN_DISCUSSION: 'En discussion', RDV: 'RDV',
@@ -130,11 +132,16 @@ export function ProspectsTable({ all }: { all: ProspectViewModel[] }) {
                       {v.business.ready ? (
                         <Tag label="READY" color={DS.violet} filled />
                       ) : (
-                        <Tag label={NOT_READY_RAISON[v.business.uiNba] ?? 'À préparer'} color={DS.subtle} />
+                        <Tag label={NOT_READY_RAISON[v.business.displayNba.type] ?? 'À préparer'} color={DS.subtle} />
                       )}
                     </td>
                     <td style={td}>{v.engine.priorite}</td>
-                    <td style={td}>{NBA_LABEL[v.business.uiNba] ?? v.business.uiNba}</td>
+                    <td style={td}>
+                      {NBA_LABEL[v.business.displayNba.type] ?? v.business.displayNba.type}
+                      {v.business.displayNba.dueAt && (
+                        <div style={{ fontSize: 11, color: DS.muted }}>{formatDateFr(v.business.displayNba.dueAt)}</div>
+                      )}
+                    </td>
                     <td style={td}>
                       <Link href={`/admin/prospects/${v.companyId}`} style={actionLinkStyle(v.business.ready)}>
                         Voir la fiche →
@@ -157,7 +164,7 @@ export function ProspectsTable({ all }: { all: ProspectViewModel[] }) {
                   {v.ville ?? '—'} · {v.engine.potentiel} · {v.engine.temperature}
                 </div>
                 <div style={{ marginBottom: 8 }}>
-                  {v.business.ready ? <Tag label="READY" color={DS.violet} filled /> : <Tag label={NOT_READY_RAISON[v.business.uiNba] ?? 'À préparer'} color={DS.subtle} />}
+                  {v.business.ready ? <Tag label="READY" color={DS.violet} filled /> : <Tag label={NOT_READY_RAISON[v.business.displayNba.type] ?? 'À préparer'} color={DS.subtle} />}
                 </div>
                 <Link href={`/admin/prospects/${v.companyId}`} style={actionLinkStyle(v.business.ready)}>
                   Voir la fiche →

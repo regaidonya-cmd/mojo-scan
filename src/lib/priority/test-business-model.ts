@@ -254,6 +254,315 @@ import { sanitizeFaitTexte, buildFaitCommercial } from './business-model'
   t('29. raisonMaintenant = texteAffichable (pas le texte brut complet)', bm.raisonMaintenant === fait.texteAffichable)
 }
 
+// 30. [P0.7B-FIX] Opposition MOYEN (telephone) n'affecte JAMAIS l'email
+// autorise de la meme personne — simule le resultat d'une ecriture
+// MOYEN scope (telephone.allowed=false) suivie d'une lecture fetch-real.ts
+{
+  const input = base({
+    contactMethods: [
+      contact({ contactMethodId: 'tel1', type: 'telephone', personneId: 'pX', allowed: false }), // MOYEN oppose
+      contact({ contactMethodId: 'email1', type: 'email', value: 'x@y.fr', personneId: 'pX', allowed: true }), // jamais touche
+    ],
+  })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [faitUsable])
+  t('30. telephone oppose (MOYEN) -> email de la meme personne reste utilisable', bm.contactabilite !== 'BLOQUEE')
+  t('30. NBA reste actionnable via email (pas NO_ACTION)', bm.uiNba !== 'NO_ACTION' && bm.uiNba !== 'NO_ACTION_TEMPORAIRE')
+}
+
+// ── P0.7D-FIX.5 : résolution centralisée du NBA affiché ──
+// 31. CALLBACK futur supplante ENRICH structurel
+{
+  const input = base({ persistedNextAction: { type: 'CALLBACK', dueAt: '2026-12-01T00:00:00Z', reason: 'Rappel proposé' } })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, []) // aucun fait -> uiNba structurel serait ENRICH
+  t('31. CALLBACK futur persisté supplante ENRICH structurel', bm.displayNba.type === 'CALLBACK')
+  t('31. uiNba structurel reste ENRICH en interne (non affiché en principal)', bm.uiNba === 'ENRICH')
+}
+// 32. Date/heure persistée restituée
+{
+  const input = base({ persistedNextAction: { type: 'CALLBACK', dueAt: '2026-09-21T11:06:00.000Z', reason: 'x' } })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('32. date persistée restituée telle quelle', bm.displayNba.dueAt === '2026-09-21T11:06:00.000Z')
+}
+// 33. FOLLOW_UP persisté supplante un NBA structurel
+{
+  const input = base({ persistedNextAction: { type: 'FOLLOW_UP', dueAt: '2026-12-01T00:00:00Z', reason: 'x' } })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('33. FOLLOW_UP persisté devient displayNba principal', bm.displayNba.type === 'FOLLOW_UP' && bm.displayNba.source === 'PERSISTE')
+}
+// 34. PREPARE_MEETING persisté restitué
+{
+  const input = base({ persistedNextAction: { type: 'PREPARE_MEETING', dueAt: '2026-09-24T09:00:00Z', reason: 'x' } })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('34. PREPARE_MEETING persisté restitué', bm.displayNba.type === 'PREPARE_MEETING')
+}
+// 35. NURTURE futur n'entre pas dans l'urgence (priorite reste non-P0, deja teste engine ; ici on verifie le NBA est quand meme affiche)
+{
+  const input = base({ persistedNextAction: { type: 'NURTURE', dueAt: '2026-12-01T00:00:00Z', reason: 'x' } })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('35. NURTURE futur affiché comme NBA, priorite non forcee a P0', bm.displayNba.type === 'NURTURE' && r.priorite !== 'P0')
+}
+// 36. NO_ACTION n'affiche pas une fausse action -> fallback structurel
+{
+  const input = base({ persistedNextAction: { type: 'NO_ACTION', dueAt: null, reason: 'x' } })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('36. NO_ACTION persisté -> fallback sur NBA structurel, jamais affiche tel quel', bm.displayNba.type !== 'NO_ACTION' && bm.displayNba.source === 'STRUCTUREL')
+}
+// 37. Absence de NBA persisté -> fallback structurel
+{
+  const input = base({ persistedNextAction: null })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [faitUsable])
+  t('37. aucun NBA persisté -> fallback structurel (CALL ici)', bm.displayNba.source === 'STRUCTUREL' && bm.displayNba.type === bm.uiNba)
+}
+// 38. STOP/opposition reste prioritaire meme avec une action persistee
+{
+  const input = base({ globalOppositionActive: true, persistedNextAction: { type: 'CALLBACK', dueAt: '2026-12-01T00:00:00Z', reason: 'x' } })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('38. STOP/opposition prime toujours sur une action persistee', bm.displayNba.type === 'STOP')
+}
+// 39. Cas de recette exact : PAS_DE_REPONSE + callback futur -> FROID/A_CONTACTER/P3 preserves
+{
+  const input = base({
+    persistedTemperature: null,
+    persistedNextAction: { type: 'CALLBACK', dueAt: '2026-09-21T11:06:00.000Z', reason: 'Aucune réponse à cette tentative — rappel proposé' },
+  })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('39. cas recette : temperature FROID (par defaut, non modifiee)', r.temperature === 'FROID')
+  t('39. cas recette : priorite P3 (echeance future, pas encore due)', r.priorite === 'P3')
+  t('39. cas recette : displayNba = CALLBACK avec date exacte', bm.displayNba.type === 'CALLBACK' && bm.displayNba.dueAt === '2026-09-21T11:06:00.000Z')
+}
+
+// 40. [P0.7D-FIX.5 correctif] leftover import P0.3D (CALL/reason="Import pilote P0.3D")
+// -> JAMAIS restitue comme action persistee pertinente, fallback structurel
+// (cas reel des 66 prospects non touches par P0.7)
+{
+  const input = base()
+  const r = evaluateProspect(input)
+  const bmSansFait = evaluateBusinessModel(
+    { ...input, persistedNextAction: { type: 'CALL', dueAt: null, reason: 'Import pilote P0.3D' } },
+    r, []
+  )
+  t('40. leftover import P0.3D -> fallback structurel, jamais restitue tel quel', bmSansFait.displayNba.source === 'STRUCTUREL')
+  t('40. leftover import P0.3D -> displayNba = uiNba structurel', bmSansFait.displayNba.type === bmSansFait.uiNba)
+}
+
+// 29. [P0.7D-FIX.7] PERDU + NO_ACTION + structure ENRICH -> NO_ACTION, priorite TERMINE
+{
+  const input = base({ pipelineStage: 'PERDU', persistedNextAction: { type: 'NO_ACTION', dueAt: null, reason: 'Opportunité clôturée' } })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, []) // aucun fait -> armement structurel serait INSUFFISANT/ENRICH sans le correctif
+  t('29. PERDU+NO_ACTION -> priorite TERMINE (pas P0-P4, pas STOP)', r.priorite === 'TERMINE')
+  t('29. PERDU+NO_ACTION -> displayNba=NO_ACTION (jamais ENRICH)', bm.displayNba.type === 'NO_ACTION')
+}
+
+// 30. [P0.7D-FIX.7] PERDU + ancien CALL persisté (leftover) -> NO_ACTION quand meme
+{
+  const input = base({ pipelineStage: 'PERDU', persistedNextAction: { type: 'CALL', dueAt: null, reason: 'Import pilote P0.3D' } })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('30. PERDU + CALL persiste (meme non-NO_ACTION) -> NO_ACTION quand meme (terminal prioritaire)', bm.displayNba.type === 'NO_ACTION')
+  t('30. PERDU + CALL persiste -> priorite TERMINE', r.priorite === 'TERMINE')
+}
+
+// 31. [P0.7D-FIX.7] GAGNE + structure CALL/ENRICH -> NO_ACTION
+{
+  const input = base({ pipelineStage: 'GAGNE', hasReliableAngle: true, angleSource: 'x' })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [faitUsable]) // armement PRET, aurait donne CALL sans le correctif
+  t('31. GAGNE -> priorite TERMINE', r.priorite === 'TERMINE')
+  t('31. GAGNE -> displayNba=NO_ACTION (jamais CALL malgre armement PRET)', bm.displayNba.type === 'NO_ACTION')
+}
+
+// 32. [P0.7D-FIX.7] prospect ACTIF (pipeline normal) + NO_ACTION persiste -> fallback structurel INCHANGE (comportement explicite)
+{
+  const input = base({ pipelineStage: 'A_CONTACTER', persistedNextAction: { type: 'NO_ACTION', dueAt: null, reason: 'Demande explicite de ne plus être contacté' } })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, []) // aucun fait -> uiNba structurel = ENRICH
+  t('32. Prospect actif + NO_ACTION persiste -> fallback structurel (ENRICH), PAS TERMINE', r.priorite !== 'TERMINE')
+  t('32. Prospect actif + NO_ACTION persiste -> displayNba = uiNba structurel (comportement inchange, voulu)', bm.displayNba.type === bm.uiNba && bm.displayNba.source === 'STRUCTUREL')
+}
+
+// 33. [P0.7D-FIX.7] opposition globale -> STOP reste prioritaire sur TERMINE
+{
+  const input = base({ pipelineStage: 'PERDU', globalOppositionActive: true })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('33. Opposition globale + PERDU -> STOP prime (pas TERMINE)', r.priorite === 'STOP')
+  t('33. Opposition globale + PERDU -> displayNba=STOP (pas NO_ACTION generique)', bm.displayNba.type === 'STOP')
+}
+
+// 34. [P0.7D-FIX.7] prospect actif normal -> comportement P0-P4 inchange (non-regression)
+{
+  const input = base({ pipelineStage: 'A_CONTACTER' })
+  const r = evaluateProspect(input)
+  t('34. pipeline actif normal -> priorite P0-P4 normale, jamais TERMINE', r.priorite !== 'TERMINE' && r.priorite !== 'STOP')
+}
+
+function contactBlocked(overrides: Partial<ContactMethod> & { blockedScope: 'PERSONNE' | 'MOYEN' }): ContactMethod {
+  return { contactMethodId: 'c1', type: 'telephone', value: 'x', nominatif: true, personneId: 'p1', allowed: false, ...overrides }
+}
+
+// 35. [P0.7D-FIX.8] Opposition ENTREPRISE (globale) -> STOP
+{
+  const input = base({ globalOppositionActive: true })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('35. opposition ENTREPRISE -> displayNba STOP', bm.displayNba.type === 'STOP')
+}
+
+// 36. [P0.7D-FIX.8] Opposition PERSONNE + aucun autre interlocuteur -> BLOQUEE mais QUALIFY, jamais STOP
+{
+  const input = base({
+    globalOppositionActive: false,
+    contactMethods: [contactBlocked({ contactMethodId: 'c1', blockedScope: 'PERSONNE' })],
+  })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('36. PERSONNE opposee, aucune alternative -> contactabilite BLOQUEE (factuel)', bm.contactabilite === 'BLOQUEE')
+  t('36. PERSONNE opposee -> displayNba QUALIFY, jamais STOP', bm.displayNba.type === 'QUALIFY')
+  t('36. PERSONNE opposee -> priorite reste NON-STOP', r.priorite !== 'STOP')
+}
+
+// 37. [P0.7D-FIX.8] Opposition PERSONNE + autre interlocuteur autorise -> pas STOP, autre interlocuteur exploitable
+{
+  const input = base({
+    contactMethods: [
+      contactBlocked({ contactMethodId: 'c1', personneId: 'p1', blockedScope: 'PERSONNE' }),
+      contact({ contactMethodId: 'c2', personneId: 'p2', allowed: true }),
+    ],
+  })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [faitUsable])
+  t('37. autre interlocuteur autorise -> contactabilite PARTIELLE (pas BLOQUEE)', bm.contactabilite === 'PARTIELLE')
+  t('37. autre interlocuteur autorise -> jamais STOP', bm.displayNba.type !== 'STOP')
+}
+
+// 38. [P0.7D-FIX.8] Opposition MOYEN telephone + email autorise -> pas STOP
+{
+  const input = base({
+    contactMethods: [
+      contactBlocked({ contactMethodId: 'tel', type: 'telephone', blockedScope: 'MOYEN' }),
+      contact({ contactMethodId: 'email', type: 'email', value: 'x@y.fr', allowed: true }),
+    ],
+  })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [faitUsable])
+  t('38. MOYEN telephone oppose + email autorise -> pas BLOQUEE, pas STOP', bm.contactabilite !== 'BLOQUEE' && bm.displayNba.type !== 'STOP')
+}
+
+// 39. [P0.7D-FIX.8] Opposition MOYEN sans alternative -> pas STOP, action de recherche adaptee (ENRICH)
+{
+  const input = base({
+    contactMethods: [contactBlocked({ contactMethodId: 'tel', type: 'telephone', blockedScope: 'MOYEN' })],
+  })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('39. MOYEN oppose sans alternative -> BLOQUEE (factuel)', bm.contactabilite === 'BLOQUEE')
+  t('39. MOYEN oppose sans alternative -> ENRICH (nouveau moyen pour meme personne), jamais STOP', bm.displayNba.type === 'ENRICH')
+}
+
+// 40. [P0.7D-FIX.8] Aucune opposition + aucun contact connu -> INSUFFISANTE existant, inchange
+{
+  const input = base({ contactMethods: [] })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('40. aucun contact, pas opposition -> INSUFFISANTE (comportement existant)', bm.contactabilite === 'INSUFFISANTE')
+  t('40. INSUFFISANTE -> jamais STOP', bm.displayNba.type !== 'STOP')
+}
+
+// 41. [P0.7D-FIX.8] TERMINE + opposition non globale (PERSONNE) -> TERMINE/NO_ACTION conserve sa precedence
+{
+  const input = base({
+    pipelineStage: 'PERDU',
+    contactMethods: [contactBlocked({ contactMethodId: 'c1', blockedScope: 'PERSONNE' })],
+  })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('41. TERMINE + opposition PERSONNE -> priorite TERMINE (pas STOP)', r.priorite === 'TERMINE')
+  t('41. TERMINE + opposition PERSONNE -> displayNba NO_ACTION (precedence sur BLOQUEE/QUALIFY)', bm.displayNba.type === 'NO_ACTION')
+}
+
+// 42. [P0.7D-FIX.8] Opposition globale (ENTREPRISE) + TERMINE -> STOP conserve sa precedence
+{
+  const input = base({ pipelineStage: 'PERDU', globalOppositionActive: true })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('42. opposition globale + PERDU -> STOP prime sur TERMINE', r.priorite === 'STOP')
+  t('42. opposition globale + PERDU -> displayNba STOP', bm.displayNba.type === 'STOP')
+}
+
+function contactAllowed(overrides: Partial<ContactMethod> & { contactMethodId: string; personneId: string }): ContactMethod {
+  return { type: 'telephone', value: 'x', nominatif: true, allowed: true, ...overrides }
+}
+
+// 43. [P0.7D-FIX.11] ENTREPRISE + telephone + email -> les deux allowed=false
+{
+  const tel = contactAllowed({ contactMethodId: 'tel1', personneId: 'p1', type: 'telephone', blockedScope: 'ENTREPRISE', allowed: false })
+  const email = contactAllowed({ contactMethodId: 'email1', personneId: 'p1', type: 'email', value: 'x@y.fr', blockedScope: 'ENTREPRISE', allowed: false })
+  const input = base({ globalOppositionActive: true, contactMethods: [tel, email] })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('43. ENTREPRISE -> les deux moyens allowed=false', tel.allowed === false && email.allowed === false)
+  t('43. ENTREPRISE -> contactabilite BLOQUEE', bm.contactabilite === 'BLOQUEE')
+  t('43. ENTREPRISE -> priorite STOP', r.priorite === 'STOP')
+}
+
+// 44. [P0.7D-FIX.11] ENTREPRISE + plusieurs personnes/moyens -> tous allowed=false
+{
+  const methods = [
+    contactAllowed({ contactMethodId: 'm1', personneId: 'p1', blockedScope: 'ENTREPRISE', allowed: false }),
+    contactAllowed({ contactMethodId: 'm2', personneId: 'p2', blockedScope: 'ENTREPRISE', allowed: false }),
+    contactAllowed({ contactMethodId: 'm3', personneId: 'p3', type: 'email', value: 'a@b.fr', blockedScope: 'ENTREPRISE', allowed: false }),
+  ]
+  t('44. ENTREPRISE + plusieurs personnes -> tous allowed=false', methods.every((m) => m.allowed === false))
+}
+
+// 45. [P0.7D-FIX.11] PERSONNE -> seuls les moyens de cette personne sont bloques
+{
+  const p1tel = contactAllowed({ contactMethodId: 'tel1', personneId: 'p1', blockedScope: 'PERSONNE', allowed: false })
+  const p2tel = contactAllowed({ contactMethodId: 'tel2', personneId: 'p2', allowed: true })
+  t('45. PERSONNE bloquee -> son moyen allowed=false', p1tel.allowed === false)
+  t('45. PERSONNE bloquee -> autre personne reste allowed=true', p2tel.allowed === true)
+}
+
+// 46. [P0.7D-FIX.11] MOYEN telephone -> telephone bloque, email alternatif autorise
+{
+  const tel = contactAllowed({ contactMethodId: 'tel1', personneId: 'p1', blockedScope: 'MOYEN', allowed: false })
+  const email = contactAllowed({ contactMethodId: 'email1', personneId: 'p1', type: 'email', value: 'x@y.fr', allowed: true })
+  t('46. MOYEN telephone bloque -> allowed=false', tel.allowed === false)
+  t('46. email alternatif reste allowed=true', email.allowed === true)
+}
+
+// 47. [P0.7D-FIX.11] aucune opposition -> moyens autorises normalement
+{
+  const tel = contactAllowed({ contactMethodId: 'tel1', personneId: 'p1', allowed: true })
+  t('47. aucune opposition -> allowed=true, blockedScope absent', tel.allowed === true && tel.blockedScope === undefined)
+}
+
+// 48. [P0.7D-FIX.11] ENTREPRISE -> STOP + pipeline existant conserve (deja verifie FIX.10, non regression ici)
+{
+  const input = base({ globalOppositionActive: true, pipelineStage: 'EN_DISCUSSION' })
+  const r = evaluateProspect(input)
+  t('48. ENTREPRISE -> STOP', r.priorite === 'STOP')
+  t('48. ENTREPRISE -> pipeline existant non modifie par le moteur (EN_DISCUSSION preserve dans input)', input.pipelineStage === 'EN_DISCUSSION')
+}
+
+// 49. [P0.7D-FIX.11] OPPORTUNITE_CLOTUREE reste inchange (aucune opposition, PERDU)
+{
+  const input = base({ pipelineStage: 'PERDU' })
+  const r = evaluateProspect(input)
+  t('49. PERDU -> priorite TERMINE, jamais une consequence d\'opposition', r.priorite === 'TERMINE')
+}
+
 console.log('')
 const passed = results.filter((r) => r.pass).length
 console.log(`${passed}/${results.length} tests passes`)

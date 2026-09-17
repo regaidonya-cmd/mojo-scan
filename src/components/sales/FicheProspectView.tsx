@@ -1,6 +1,9 @@
 import Link from 'next/link'
 import { DS } from '@/lib/ds/tokens'
-import type { ProspectViewModel } from '@/lib/priority/fetch-real'
+import type { ProspectViewModel, HistoriqueEvent } from '@/lib/priority/fetch-real'
+import { ResultatAppelForm } from './ResultatAppelForm'
+import { formatDateHeureFr, formatDateFr } from '@/lib/priority/format-date-fr'
+import { getStatutBadgeLabel, getRaisonAffichee, peutEnregistrerResultat } from '@/lib/priority/fiche-presentation'
 
 const PIPELINE_LABEL: Record<string, string> = {
   A_CONTACTER: 'À contacter', EN_DISCUSSION: 'En discussion', RDV: 'RDV',
@@ -8,11 +11,13 @@ const PIPELINE_LABEL: Record<string, string> = {
 }
 const NBA_LABEL: Record<string, string> = {
   CALL: 'Appeler', EMAIL: 'Envoyer un email', QUALIFY: 'Qualifier', ENRICH: 'Vérifier / enrichir',
-  FOLLOW_UP: 'Relancer', PREPARE_RDV: 'Préparer le RDV', SEND_PROPOSAL: 'Envoyer une proposition',
-  WAIT: 'Attendre', NURTURE: 'Nurture', NO_ACTION: 'Aucune action', NO_ACTION_TEMPORAIRE: 'Aucune action pour le moment',
+  FOLLOW_UP: 'Relancer', PREPARE_RDV: 'Préparer le RDV', PREPARE_MEETING: 'Préparer le RDV',
+  SEND_PROPOSAL: 'Envoyer une proposition', CALLBACK: 'Rappeler',
+  WAIT: 'Attendre', NURTURE: 'Relancer ultérieurement', NO_ACTION: 'Aucune action', NO_ACTION_TEMPORAIRE: 'Aucune action pour le moment',
+  STOP: 'Aucune action possible',
 }
 
-export function FicheProspectView({ vm }: { vm: ProspectViewModel }) {
+export function FicheProspectView({ vm, historique }: { vm: ProspectViewModel; historique: HistoriqueEvent[] }) {
   const { engine, business, companyName, siren, naf, ville, distanceKm, interlocuteur, pipelineStage, telephoneAffichable, emailAffichable } = vm
 
   return (
@@ -34,7 +39,10 @@ export function FicheProspectView({ vm }: { vm: ProspectViewModel }) {
         <Chip label={`Température : ${engine.temperature}`} />
         <Chip label={`Priorité : ${engine.priorite}`} />
         <Chip label={`Pipeline : ${PIPELINE_LABEL[pipelineStage] ?? pipelineStage}`} />
-        {business.ready ? <Chip label="READY" filled /> : <Chip label="À préparer" muted />}
+        {(() => {
+          const badge = getStatutBadgeLabel(engine.priorite, business.ready)
+          return <Chip label={badge.label} filled={badge.filled} muted={badge.muted} />
+        })()}
       </div>
 
       {/* Contactabilité / Connaissance / Armement */}
@@ -44,9 +52,14 @@ export function FicheProspectView({ vm }: { vm: ProspectViewModel }) {
         <Row label="Armement" value={business.armement} />
       </Section>
 
-      {/* Pourquoi maintenant / ce prospect — wording conditionné à la priorité réelle */}
-      <Section title={business.raisonLabel}>
-        <p style={{ fontSize: 14, color: DS.text, lineHeight: 1.5, margin: 0 }}>{business.raisonMaintenant}</p>
+      {/* Pourquoi maintenant / ce prospect — wording conditionné à la priorité réelle.
+          P0.7E : pour STOP/TERMINE, texte de présentation dédié — ne modifie
+          jamais business.raisonMaintenant (règle métier inchangée), seul
+          l'affichage est adapté ici. */}
+      <Section title={engine.priorite === 'STOP' || engine.priorite === 'TERMINE' ? 'Statut' : business.raisonLabel}>
+        <p style={{ fontSize: 14, color: DS.text, lineHeight: 1.5, margin: 0 }}>
+          {getRaisonAffichee(engine.priorite, business.raisonMaintenant)}
+        </p>
       </Section>
 
       {/* FAIT OBSERVÉ — ce que nous savons réellement, sourcé */}
@@ -92,9 +105,11 @@ export function FicheProspectView({ vm }: { vm: ProspectViewModel }) {
         {emailAffichable && <Row label="Email autorisé" value={emailAffichable} />}
       </Section>
 
-      {/* NBA — lien tel: reel uniquement si telephone autorise ; sinon information seule */}
+      {/* NBA — lien tel: reel uniquement si telephone autorise ET action = CALL ;
+          sinon information seule (P0.7D-FIX.5 : displayNba = source unique,
+          priorite a une action commerciale persistee pertinente) */}
       <Section title="Prochaine action recommandée">
-        {business.uiNba === 'CALL' && telephoneAffichable ? (
+        {business.displayNba.type === 'CALL' && telephoneAffichable ? (
           <a
             href={`tel:${telephoneAffichable.replace(/\s/g, '')}`}
             style={{
@@ -106,14 +121,51 @@ export function FicheProspectView({ vm }: { vm: ProspectViewModel }) {
           </a>
         ) : (
           <div style={{ display: 'inline-block', padding: '10px 20px', borderRadius: DS.rMd, background: DS.lav, color: DS.violet, fontWeight: 700, fontSize: 14 }}>
-            {NBA_LABEL[business.uiNba] ?? business.uiNba}
+            {NBA_LABEL[business.displayNba.type] ?? business.displayNba.type}
+            {business.displayNba.dueAt && (
+              <span style={{ fontWeight: 500 }}> — {formatDateHeureFr(business.displayNba.dueAt)}</span>
+            )}
           </div>
         )}
+        {business.displayNba.source === 'PERSISTE' && (
+          <p style={{ fontSize: 12, color: DS.muted, marginTop: 6 }}>{business.displayNba.reason}</p>
+        )}
         <p style={{ fontSize: 12.5, color: DS.muted, marginTop: 10 }}>
-          {business.uiNba === 'CALL' && telephoneAffichable
+          {business.displayNba.type === 'CALL' && telephoneAffichable
             ? "Le lien ouvre votre application téléphone — aucun appel n'est déclenché automatiquement, aucune donnée n'est écrite."
             : "Aucune action n'est déclenchée automatiquement depuis cette page."}
         </p>
+        {!peutEnregistrerResultat(engine.priorite) ? (
+          <p style={{ fontSize: 13, color: DS.muted, fontStyle: 'italic', marginTop: 10 }}>
+            Prospection arrêtée — aucune action commerciale autorisée.
+          </p>
+        ) : (
+          <ResultatAppelForm
+            companyId={vm.companyId}
+            personneId={engine.selectedContact?.personneId ?? null}
+            moyenContactId={engine.selectedContact?.contactMethodId ?? null}
+          />
+        )}
+      </Section>
+
+      {/* P0.7 — Historique commercial réel. Vide tant qu'aucune écriture
+          n'a eu lieu (activites=0 ligne) — jamais un historique inventé. */}
+      <Section title="Historique commercial">
+        {historique.length === 0 ? (
+          <p style={{ fontSize: 13, color: DS.muted, fontStyle: 'italic', margin: 0 }}>
+            Aucun événement enregistré pour le moment.
+          </p>
+        ) : (
+          historique.map((h) => (
+            <div key={h.id} style={{ padding: '8px 0', borderBottom: `1px solid ${DS.border}`, fontSize: 13 }}>
+              <span style={{ color: DS.muted }}>{formatDateFr(h.dateEvenement)}</span>
+              {' — '}
+              <span style={{ fontWeight: 700 }}>{h.type ?? 'Événement'}</span>
+              {h.resultat && ` — ${h.resultat}`}
+              {h.description && <div style={{ color: DS.muted, marginTop: 2 }}>{h.description}</div>}
+            </div>
+          ))
+        )}
       </Section>
 
       {engine.warnings.length > 0 && (

@@ -19,6 +19,7 @@ import type {
   CommercialEvent,
   ContactMethod,
 } from './types'
+import { NEXT_ACTION_URGENT_TYPES as NEXT_ACTION_URGENT_TYPES_ENGINE } from './types'
 
 const HOURS = 3600 * 1000
 
@@ -56,6 +57,11 @@ const PROSPECT_EVENT_TEMPERATURE: Partial<Record<CommercialEvent['kind'], Temper
 }
 
 export function computeTemperature(input: ProspectInput): Temperature {
+  // P0.7 — source de vérité : si une température a été persistée suite à
+  // une interaction humaine réelle, elle fait autorité et n'est jamais
+  // recalculée/écrasée silencieusement.
+  if (input.persistedTemperature) return input.persistedTemperature
+
   let current: Temperature = 'FROID'
   for (const ev of input.events) {
     if (!ev.originatedByProspect) continue // action MOJO : jamais prise en compte ici
@@ -131,6 +137,19 @@ export function computePriorite(
     return { priorite: 'STOP', whyNow: ['Marqué perdu définitif'] }
   }
 
+  // P0.7D-FIX.7 — Opportunité commerciale TERMINALE (PERDU/GAGNE) : jamais
+  // une opposition (STOP réservé aux exclusions/oppositions globales), et
+  // jamais présentée comme un prospect actif P0-P4. Réactivable plus tard
+  // via un nouveau pipeline/nouvelle opportunité — ce n'est PAS une
+  // exclusion commerciale permanente, juste "rien à faire maintenant sur
+  // CETTE opportunité close".
+  if (input.pipelineStage === 'PERDU' || input.pipelineStage === 'GAGNE') {
+    return {
+      priorite: 'TERMINE',
+      whyNow: [input.pipelineStage === 'PERDU' ? 'Opportunité clôturée (perdue)' : 'Opportunité clôturée (gagnée)'],
+    }
+  }
+
   // Client existant (GAGNE) : hors prospection froide, mais ce n'est
   // PAS une interdiction commerciale — on utilise P4 pour l'exclure des
   // flux de prospection sans le confondre avec une opposition/refus.
@@ -139,6 +158,22 @@ export function computePriorite(
   }
 
   const last = lastEvent(input)
+
+  // P0.7 — Action persistée (prospects_sales.next_action_*), source de
+  // vérité pour les résultats d'appel qui ne produisent pas nécessairement
+  // un CommercialEvent (ex. "pas de réponse" -> pas de signal prospect,
+  // mais un rappel programmé bien réel). RÈGLE VERROUILLÉE : due seule ne
+  // suffit JAMAIS — le type doit appartenir à NEXT_ACTION_URGENT_TYPES.
+  // NURTURE/WAIT dus n'entrent JAMAIS ici, quelle que soit leur échéance —
+  // c'est la NATURE de l'action, pas la date seule, qui détermine P0.
+  const pna = input.persistedNextAction
+  if (pna && pna.dueAt) {
+    const hoursUntil = hoursBetween(input.now, pna.dueAt)
+    if (hoursUntil <= 0 && NEXT_ACTION_URGENT_TYPES_ENGINE.has(pna.type)) {
+      whyNow.push(pna.reason || 'Action programmée arrivée à échéance')
+      return { priorite: 'P0', whyNow }
+    }
+  }
 
   // RDV imminent = P0 quelle que soit sa provenance (préparation nécessaire).
   const rdv = findLastOfKind(input, 'RDV_SCHEDULED')
