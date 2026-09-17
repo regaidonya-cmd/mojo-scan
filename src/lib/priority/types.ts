@@ -46,6 +46,11 @@ export interface ContactMethod {
   personnePrenom?: string
   nominatif: boolean
   allowed: boolean // résultat déjà calculé par p04_allowed_channels() côté données
+  // P0.7D-FIX.8 — portée de l'opposition ayant produit allowed=false (undefined si allowed=true).
+  // Permet de distinguer "cette personne est opposée" (QUALIFY: chercher un
+  // autre interlocuteur) de "ce moyen précis est opposé" (ENRICH: chercher
+  // un nouveau moyen pour cet interlocuteur déjà identifié).
+  blockedScope?: 'PERSONNE' | 'MOYEN'
 }
 
 /**

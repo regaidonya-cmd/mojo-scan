@@ -4,7 +4,7 @@
 // + les faits commerciaux déjà persistés. N'accède jamais à Supabase.
 // ══════════════════════════════════════════════════════════════
 
-import type { ProspectInput, CommercialPriorityResult } from './types'
+import type { ProspectInput, CommercialPriorityResult, ContactMethod } from './types'
 
 export type Contactabilite = 'BONNE' | 'PARTIELLE' | 'INSUFFISANTE' | 'BLOQUEE'
 export type Connaissance = 'FAIBLE' | 'MOYENNE' | 'BONNE'
@@ -324,17 +324,35 @@ function computeDisplayNba(
   priorite: string,
   contactabilite: Contactabilite,
   persistedNextAction: { type: string; dueAt: string | null; reason: string } | null | undefined,
-  uiNba: UiNba
+  uiNba: UiNba,
+  contactMethods: ContactMethod[]
 ): DisplayNba {
-  if (priorite === 'STOP' || contactabilite === 'BLOQUEE') {
-    return { type: 'STOP', dueAt: null, reason: 'Opposition active — aucune action commerciale possible', source: 'STRUCTUREL' }
+  // P0.7D-FIX.8 — STOP réservé STRICTEMENT à une exclusion globale réelle
+  // (priorite==='STOP', déjà garanti par globalOppositionActive/isLostDefinitive
+  // dans engine.ts, jamais influencé par contactabilite). BLOQUEE ne
+  // déclenche PLUS jamais STOP à lui seul — une opposition PERSONNE ou
+  // MOYEN ne doit jamais être présentée comme une exclusion d'entreprise.
+  if (priorite === 'STOP') {
+    return { type: 'STOP', dueAt: null, reason: 'Opposition globale entreprise active — aucune action commerciale possible', source: 'STRUCTUREL' }
   }
-  // P0.7D-FIX.7 — Opportunité terminale (PERDU/GAGNE) : NO_ACTION obligatoire,
-  // AVANT toute autre logique (y compris une action persistée non-NO_ACTION
-  // resterait affichée sinon si le pipeline a été clôturé après coup — un
-  // dossier clos ne doit JAMAIS afficher CALL/EMAIL/QUALIFY/ENRICH/FOLLOW_UP).
+  // Opportunité terminale (PERDU/GAGNE) : conserve sa précédence sur BLOQUEE
+  // — NO_ACTION obligatoire, quelle que soit la contactabilité.
   if (priorite === 'TERMINE') {
     return { type: 'NO_ACTION', dueAt: null, reason: 'Opportunité clôturée — dossier clos', source: 'STRUCTUREL' }
+  }
+  // P0.7D-FIX.8 — BLOQUEE reste une contactabilité factuellement correcte
+  // (aucun moyen actuellement autorisé), mais ne produit JAMAIS un NBA
+  // 'STOP'. La portée réelle de l'opposition détermine la recommandation :
+  // PERSONNE opposée -> chercher un AUTRE interlocuteur (QUALIFY) ;
+  // uniquement des MOYENS opposés (personne non opposée) -> chercher un
+  // nouveau moyen pour cet interlocuteur déjà identifié (ENRICH). Jamais
+  // recommander d'utiliser les coordonnées de la personne opposée.
+  if (contactabilite === 'BLOQUEE') {
+    const personneOpposee = contactMethods.some((c) => c.blockedScope === 'PERSONNE')
+    if (personneOpposee) {
+      return { type: 'QUALIFY', dueAt: null, reason: 'Interlocuteur opposé à la prospection — identifier un autre interlocuteur autorisé', source: 'STRUCTUREL' }
+    }
+    return { type: 'ENRICH', dueAt: null, reason: 'Moyen de contact opposé — rechercher un nouveau moyen pour cet interlocuteur', source: 'STRUCTUREL' }
   }
   // P0.7D-FIX.5 — les 66 prospects réels portent tous un leftover de
   // l'import P0.3D original (next_action_type='CALL', reason='Import
@@ -374,7 +392,7 @@ export function evaluateBusinessModel(
   const raisonLabel = computeRaisonLabel(engineResult.priorite)
   const angleApproche = computeAngleApproche(armement, faitPrincipal)
   const uiNba = computeUiNba(engineResult.nextBestAction.type, contactabilite, armement)
-  const displayNba = computeDisplayNba(engineResult.priorite, contactabilite, input.persistedNextAction, uiNba)
+  const displayNba = computeDisplayNba(engineResult.priorite, contactabilite, input.persistedNextAction, uiNba, input.contactMethods)
 
   return {
     contactabilite, connaissance, armement, ready, faitPrincipal,

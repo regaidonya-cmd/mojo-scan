@@ -206,6 +206,7 @@ export async function fetchMaJourneeData(): Promise<ProspectViewModel[]> {
           personnePrenom: p.prenom,
           nominatif: true,
           allowed: !personneOpposee && !moyenOppose && !canalBloque,
+          blockedScope: personneOpposee ? 'PERSONNE' : (moyenOppose || canalBloque) ? 'MOYEN' : undefined,
         })
       }
     }
