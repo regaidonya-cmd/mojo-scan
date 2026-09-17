@@ -186,6 +186,7 @@ export async function fetchMaJourneeData(): Promise<ProspectViewModel[]> {
     const qual = qualByCompany.get(companyId)
     const companyPersonnes = personnesByCompany.get(companyId) ?? []
 
+    const entrepriseOpposee = oppEntrepriseGlobale.has(companyId)
     const contactMethods: ContactMethod[] = []
     for (const p of companyPersonnes) {
       const personneOpposee = oppPersonneGlobale.has(p.id)
@@ -197,8 +198,13 @@ export async function fetchMaJourneeData(): Promise<ProspectViewModel[]> {
         if (!type || !value) continue
         const moyenOppose = oppMoyen.has(c.moyen_contact_id)
         const canalBloque = canauxBloquesEntreprise.has(type)
-        const allowed = !personneOpposee && !moyenOppose && !canalBloque
-        const blockedScope = personneOpposee ? 'PERSONNE' : (moyenOppose || canalBloque) ? 'MOYEN' : undefined
+        // P0.7D-FIX.11 — Une opposition ENTREPRISE domine toutes les
+        // autorisations de contact, y compris au niveau de chaque
+        // ContactMethod individuel — conséquence CALCULÉE, aucune nouvelle
+        // ligne d'opposition créée (la DB continue de ne contenir que
+        // l'opposition ENTREPRISE elle-même, company_id seul).
+        const allowed = !entrepriseOpposee && !personneOpposee && !moyenOppose && !canalBloque
+        const blockedScope = entrepriseOpposee ? 'ENTREPRISE' : personneOpposee ? 'PERSONNE' : (moyenOppose || canalBloque) ? 'MOYEN' : undefined
         contactMethods.push({
           contactMethodId: c.moyen_contact_id,
           type,

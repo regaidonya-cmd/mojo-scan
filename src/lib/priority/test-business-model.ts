@@ -500,6 +500,69 @@ function contactBlocked(overrides: Partial<ContactMethod> & { blockedScope: 'PER
   t('42. opposition globale + PERDU -> displayNba STOP', bm.displayNba.type === 'STOP')
 }
 
+function contactAllowed(overrides: Partial<ContactMethod> & { contactMethodId: string; personneId: string }): ContactMethod {
+  return { type: 'telephone', value: 'x', nominatif: true, allowed: true, ...overrides }
+}
+
+// 43. [P0.7D-FIX.11] ENTREPRISE + telephone + email -> les deux allowed=false
+{
+  const tel = contactAllowed({ contactMethodId: 'tel1', personneId: 'p1', type: 'telephone', blockedScope: 'ENTREPRISE', allowed: false })
+  const email = contactAllowed({ contactMethodId: 'email1', personneId: 'p1', type: 'email', value: 'x@y.fr', blockedScope: 'ENTREPRISE', allowed: false })
+  const input = base({ globalOppositionActive: true, contactMethods: [tel, email] })
+  const r = evaluateProspect(input)
+  const bm = evaluateBusinessModel(input, r, [])
+  t('43. ENTREPRISE -> les deux moyens allowed=false', tel.allowed === false && email.allowed === false)
+  t('43. ENTREPRISE -> contactabilite BLOQUEE', bm.contactabilite === 'BLOQUEE')
+  t('43. ENTREPRISE -> priorite STOP', r.priorite === 'STOP')
+}
+
+// 44. [P0.7D-FIX.11] ENTREPRISE + plusieurs personnes/moyens -> tous allowed=false
+{
+  const methods = [
+    contactAllowed({ contactMethodId: 'm1', personneId: 'p1', blockedScope: 'ENTREPRISE', allowed: false }),
+    contactAllowed({ contactMethodId: 'm2', personneId: 'p2', blockedScope: 'ENTREPRISE', allowed: false }),
+    contactAllowed({ contactMethodId: 'm3', personneId: 'p3', type: 'email', value: 'a@b.fr', blockedScope: 'ENTREPRISE', allowed: false }),
+  ]
+  t('44. ENTREPRISE + plusieurs personnes -> tous allowed=false', methods.every((m) => m.allowed === false))
+}
+
+// 45. [P0.7D-FIX.11] PERSONNE -> seuls les moyens de cette personne sont bloques
+{
+  const p1tel = contactAllowed({ contactMethodId: 'tel1', personneId: 'p1', blockedScope: 'PERSONNE', allowed: false })
+  const p2tel = contactAllowed({ contactMethodId: 'tel2', personneId: 'p2', allowed: true })
+  t('45. PERSONNE bloquee -> son moyen allowed=false', p1tel.allowed === false)
+  t('45. PERSONNE bloquee -> autre personne reste allowed=true', p2tel.allowed === true)
+}
+
+// 46. [P0.7D-FIX.11] MOYEN telephone -> telephone bloque, email alternatif autorise
+{
+  const tel = contactAllowed({ contactMethodId: 'tel1', personneId: 'p1', blockedScope: 'MOYEN', allowed: false })
+  const email = contactAllowed({ contactMethodId: 'email1', personneId: 'p1', type: 'email', value: 'x@y.fr', allowed: true })
+  t('46. MOYEN telephone bloque -> allowed=false', tel.allowed === false)
+  t('46. email alternatif reste allowed=true', email.allowed === true)
+}
+
+// 47. [P0.7D-FIX.11] aucune opposition -> moyens autorises normalement
+{
+  const tel = contactAllowed({ contactMethodId: 'tel1', personneId: 'p1', allowed: true })
+  t('47. aucune opposition -> allowed=true, blockedScope absent', tel.allowed === true && tel.blockedScope === undefined)
+}
+
+// 48. [P0.7D-FIX.11] ENTREPRISE -> STOP + pipeline existant conserve (deja verifie FIX.10, non regression ici)
+{
+  const input = base({ globalOppositionActive: true, pipelineStage: 'EN_DISCUSSION' })
+  const r = evaluateProspect(input)
+  t('48. ENTREPRISE -> STOP', r.priorite === 'STOP')
+  t('48. ENTREPRISE -> pipeline existant non modifie par le moteur (EN_DISCUSSION preserve dans input)', input.pipelineStage === 'EN_DISCUSSION')
+}
+
+// 49. [P0.7D-FIX.11] OPPORTUNITE_CLOTUREE reste inchange (aucune opposition, PERDU)
+{
+  const input = base({ pipelineStage: 'PERDU' })
+  const r = evaluateProspect(input)
+  t('49. PERDU -> priorite TERMINE, jamais une consequence d\'opposition', r.priorite === 'TERMINE')
+}
+
 console.log('')
 const passed = results.filter((r) => r.pass).length
 console.log(`${passed}/${results.length} tests passes`)

@@ -50,7 +50,7 @@ export interface ContactMethod {
   // Permet de distinguer "cette personne est opposée" (QUALIFY: chercher un
   // autre interlocuteur) de "ce moyen précis est opposé" (ENRICH: chercher
   // un nouveau moyen pour cet interlocuteur déjà identifié).
-  blockedScope?: 'PERSONNE' | 'MOYEN'
+  blockedScope?: 'PERSONNE' | 'MOYEN' | 'ENTREPRISE'
 }
 
 /**
