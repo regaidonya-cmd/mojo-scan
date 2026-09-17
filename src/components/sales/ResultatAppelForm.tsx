@@ -220,7 +220,12 @@ export function ResultatAppelForm({
               ) : resultat === 'DEMANDE_NE_PLUS_CONTACTER' ? (
                 <div>
                   Portée sélectionnée : <strong>{oppositionScope ? OPPOSITION_LABEL[oppositionScope] : '— à choisir ci-dessus —'}</strong>
-                  {oppositionScope === 'ENTREPRISE' && <div style={{ color: '#B3261E', marginTop: 4 }}>⚠ Entraîne l'arrêt total de la prospection pour cette entreprise (STOP).</div>}
+                  {oppositionScope === 'ENTREPRISE' && (
+                    <>
+                      <div style={{ color: '#B3261E', marginTop: 4 }}>⚠ Prospection : arrêtée pour toute l'entreprise (STOP)</div>
+                      <div style={{ color: DS.muted, marginTop: 2 }}>Pipeline : inchangé</div>
+                    </>
+                  )}
                 </div>
               ) : (
                 <>
