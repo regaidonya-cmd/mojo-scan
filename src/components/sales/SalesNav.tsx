@@ -2,10 +2,11 @@
 
 import { DS } from '@/lib/ds/tokens'
 
-export function SalesNav({ active }: { active: 'ma-journee' | 'prospects' }) {
-  const items: { id: 'ma-journee' | 'prospects'; label: string; href: string; disabled?: boolean }[] = [
+export function SalesNav({ active }: { active: 'ma-journee' | 'prospects' | 'campagnes' }) {
+  const items: { id: 'ma-journee' | 'prospects' | 'campagnes'; label: string; href: string; disabled?: boolean }[] = [
     { id: 'ma-journee', label: 'Ma journée', href: '/admin/ma-journee' },
     { id: 'prospects', label: 'Prospects', href: '/admin/prospects' },
+    { id: 'campagnes', label: 'Campagnes', href: '/admin/campagnes/nouveau' },
   ]
   return (
     <nav
