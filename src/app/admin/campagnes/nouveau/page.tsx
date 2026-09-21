@@ -33,12 +33,17 @@ export default async function NouvelleCampagnePage() {
     )
   }
 
-  const all = await fetchReservoirCampagne({})
+  const result = await fetchReservoirCampagne({})
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAF8' }}>
       <SalesNav active="campagnes" />
-      <CampagneSelectionTable all={all} />
+      {result.tronque && (
+        <div style={{ padding: '10px 20px', background: '#FFF3CD', color: '#7A5B00', fontSize: 13, fontWeight: 700 }}>
+          ⚠️ Population tronquée : {result.totalFetched}/{result.totalCompaniesDb} entreprises chargées. Vérifier la pagination.
+        </div>
+      )}
+      <CampagneSelectionTable all={result.prospects} />
     </div>
   )
 }

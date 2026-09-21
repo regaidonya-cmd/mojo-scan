@@ -27,7 +27,11 @@ export function CampagneSelectionTable({ all }: { all: ReservoirProspect[] }) {
   const [creationResult, setCreationResult] = useState<any>(null)
   const [creating, setCreating] = useState(false)
 
-  const segments = useMemo(() => Array.from(new Set(all.map((v) => v.segment).filter(Boolean))) as string[], [all])
+  const segments = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const v of all) if (v.segment) map.set(v.segment, v.segmentLibelle ?? v.segment)
+    return Array.from(map.entries()) // [code, libellé]
+  }, [all])
   const departements = useMemo(() => Array.from(new Set(all.map((v) => v.departement).filter(Boolean))).sort(), [all])
 
   const filtered = useMemo(() => {
@@ -104,7 +108,7 @@ export function CampagneSelectionTable({ all }: { all: ReservoirProspect[] }) {
         />
         <select value={filters.segment} onChange={(e) => { setFilters((f) => ({ ...f, segment: e.target.value })); setPage(0) }} style={selectStyle}>
           <option value="">Tous segments</option>
-          {segments.map((s) => <option key={s} value={s}>{s}</option>)}
+          {segments.map(([code, label]) => <option key={code} value={code}>{label}</option>)}
         </select>
         <select value={filters.departement} onChange={(e) => { setFilters((f) => ({ ...f, departement: e.target.value })); setPage(0) }} style={selectStyle}>
           <option value="">Tous départements</option>
