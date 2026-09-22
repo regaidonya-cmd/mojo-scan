@@ -10,40 +10,81 @@
 import type {
   EligibiliteCampagneInput, EligibiliteCampagneResult,
   ControleAjoutMembreResult, MembreLotCandidat,
+  EligibiliteCampagneInputGenerique, SegmentEligibiliteConfig,
 } from './types'
+import { resoudreConfigSegment } from './segment-config'
 
 /**
- * computeEligibiliteCampagne — distincte de READY commercial individuel.
- * Pour le pilote diagnostiqueurs : ADI_DHUP direct + email exploitable +
- * email non partagé + aucune opposition + nom non ambigu.
- * Ne consulte JAMAIS qualifications_courantes.preuve_metier (champ
- * historique, inchangé, hors périmètre de ce calcul).
+ * computeEligibiliteCampagneGenerique — AUTO.2C LOT 1. Cœur du moteur,
+ * NE CONNAÎT AUCUN nom de source ('ADI_DHUP', 'RAFAEL', etc.) ni AUCUN
+ * métier en dur. Toute la logique propre à un segment vit dans `config`
+ * (résolue en amont via segment-config.ts). Un segment inconnu/non
+ * configuré retombe prudemment sur NON_ELIGIBLE — jamais un crash, jamais
+ * une éligibilité par défaut.
  */
-export function computeEligibiliteCampagne(input: EligibiliteCampagneInput): EligibiliteCampagneResult {
+export function computeEligibiliteCampagneGenerique(
+  input: EligibiliteCampagneInputGenerique,
+  config: SegmentEligibiliteConfig | null
+): EligibiliteCampagneResult {
   const raisons: string[] = []
 
   if (input.oppositionActive) {
     return { statut: 'NON_ELIGIBLE', raisons: ['Opposition active — exclusion campagne'] }
   }
-  if (!input.emailExploitable) {
-    return { statut: 'NON_ELIGIBLE', raisons: ['Aucun email professionnel exploitable'] }
+  if (!input.contactExploitable) {
+    return { statut: 'NON_ELIGIBLE', raisons: ['Aucun contact professionnel exploitable'] }
   }
-  if (input.emailPartageAvecAutreEntreprise) {
-    return { statut: 'NON_ELIGIBLE', raisons: ['Email partagé avec une autre entreprise — risque de doublon destinataire'] }
+  if (input.contactPartageAvecAutreEntreprise) {
+    return { statut: 'NON_ELIGIBLE', raisons: ['Contact partagé avec une autre entreprise — risque de doublon destinataire'] }
   }
 
-  const signalMetierFort = input.emailSource === 'ADI_DHUP'
-  if (!signalMetierFort) {
-    return { statut: 'NON_ELIGIBLE', raisons: ['Aucun signal métier fort disponible (pas de rattachement ADI_DHUP)'] }
+  if (!config) {
+    return { statut: 'NON_ELIGIBLE', raisons: ["Segment inconnu ou non configuré — comportement prudent, aucune règle d'éligibilité disponible"] }
+  }
+
+  if (input.preuveMetierNiveau !== 'CONFIRME') {
+    return { statut: 'NON_ELIGIBLE', raisons: [`Preuve métier insuffisante pour ce segment (niveau : ${input.preuveMetierNiveau})`] }
+  }
+
+  const sourceContactAcceptable = config.sourcesContactAcceptables === 'ANY'
+    || (input.contactSource != null && config.sourcesContactAcceptables.includes(input.contactSource))
+  if (!sourceContactAcceptable) {
+    return { statut: 'NON_ELIGIBLE', raisons: [`Provenance du contact non acceptée pour ce segment (source : ${input.contactSource ?? 'inconnue'})`] }
   }
 
   if (input.nomAmbigu) {
-    raisons.push(`Signal métier fort (ADI_DHUP) mais raison sociale ambiguë ("${input.raisonSociale}") — à confirmer manuellement`)
+    raisons.push(`Preuve métier confirmée mais raison sociale ambiguë ("${input.raisonSociale}") — à confirmer manuellement`)
     return { statut: 'AMBIGU', raisons }
   }
 
-  raisons.push('Rattachement ADI_DHUP direct, email exploitable et non partagé, aucune opposition')
+  raisons.push('Preuve métier confirmée, contact exploitable et non partagé, provenance acceptable, aucune opposition')
   return { statut: 'ELIGIBLE', raisons }
+}
+
+/**
+ * computeEligibiliteCampagne — API HISTORIQUE (pilote diagnostiqueurs),
+ * CONSERVÉE À L'IDENTIQUE pour compatibilité ascendante avec
+ * fetch-reservoir.ts (garantit zéro régression DIAG94, LOT 2). Délègue
+ * intégralement au moteur générique ci-dessus via la config du segment
+ * PARC-001 — mathématiquement équivalente à l'ancien comportement.
+ */
+export function computeEligibiliteCampagne(input: EligibiliteCampagneInput): EligibiliteCampagneResult {
+  const config = resoudreConfigSegment('PARC-001') // diagnostiqueurs — seul segment câblé sur cette API historique
+  const preuveMetierNiveau = input.emailSource != null && config?.sourcesPreuveMetierAcceptables.includes(input.emailSource)
+    ? 'CONFIRME' as const
+    : 'HORS_CIBLE' as const
+
+  return computeEligibiliteCampagneGenerique({
+    companyId: input.companyId,
+    raisonSociale: input.raisonSociale,
+    segmentId: 'PARC-001',
+    preuveMetierNiveau,
+    contactSource: input.emailSource,
+    contactExploitable: input.emailExploitable,
+    contactPartageAvecAutreEntreprise: input.emailPartageAvecAutreEntreprise,
+    oppositionActive: input.oppositionActive,
+    nomAmbigu: input.nomAmbigu,
+  }, config)
 }
 
 /**
