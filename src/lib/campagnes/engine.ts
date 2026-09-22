@@ -77,3 +77,20 @@ export function controleAjoutMembreLot(
 export function pageItems<T>(items: T[], page: number, pageSize: number): T[] {
   return items.slice(page * pageSize, (page + 1) * pageSize)
 }
+
+// P0.8C FIX.3 — Décision pure : quels membres sont réellement
+// synchronisables au moment du sync, en réutilisant l'éligibilité déjà
+// recalculée (jamais des valeurs hardcodées). Extraite pour être testable
+// indépendamment de tout appel réseau externe.
+export interface MembreEligibiliteRecalculee {
+  companyId: string
+  eligibiliteCampagne: 'ELIGIBLE' | 'AMBIGU' | 'NON_ELIGIBLE'
+}
+
+export function determinerMembresSynchronisables<T extends MembreEligibiliteRecalculee>(
+  membres: T[]
+): { synchronisables: T[]; nonSynchronisables: T[] } {
+  const synchronisables = membres.filter((m) => m.eligibiliteCampagne === 'ELIGIBLE')
+  const nonSynchronisables = membres.filter((m) => m.eligibiliteCampagne !== 'ELIGIBLE')
+  return { synchronisables, nonSynchronisables }
+}
