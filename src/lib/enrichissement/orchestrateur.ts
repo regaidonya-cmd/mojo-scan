@@ -17,21 +17,24 @@ export const MAX_PLACE_DETAILS_CALLS = 20
 export async function enrichirBatch(
   references: EtablissementReference[],
   fetchPage: (url: string) => Promise<string | null>,
-  clientInjecte?: GooglePlacesClient
+  clientInjecte?: GooglePlacesClient,
+  limiteCompanies: number = MAX_COMPANIES, // défaut inchangé (10) — routes existantes non impactées
+  limiteTextSearch: number = MAX_TEXT_SEARCH_CALLS, // défaut inchangé (20)
+  limitePlaceDetails: number = MAX_PLACE_DETAILS_CALLS // défaut inchangé (20)
 ): Promise<{ fiches: FicheEnrichie[]; nbTextSearch: number; nbPlaceDetails: number }> {
-  if (references.length > MAX_COMPANIES) {
-    throw new Error(`Garde-fou : ${references.length} entreprises demandées, MAX_COMPANIES=${MAX_COMPANIES}. Refus d'exécuter.`)
+  if (references.length > limiteCompanies) {
+    throw new Error(`Garde-fou : ${references.length} entreprises demandées, limite=${limiteCompanies}. Refus d'exécuter.`)
   }
 
-  const client = clientInjecte ?? realGooglePlacesClient() // lève une erreur explicite si GOOGLE_PLACES_API_KEY absente, APRÈS le contrôle MAX_COMPANIES
+  const client = clientInjecte ?? realGooglePlacesClient() // lève une erreur explicite si GOOGLE_PLACES_API_KEY absente, APRÈS le contrôle de limite
   const fiches: FicheEnrichie[] = []
   let nbTextSearch = 0
   let nbPlaceDetails = 0
 
   for (const reference of references) {
     // Contrôle PRÉVENTIF avant l'appel Text Search — jamais après coup.
-    if (nbTextSearch + 1 > MAX_TEXT_SEARCH_CALLS) {
-      throw new Error(`Garde-fou : prochain Text Search dépasserait MAX_TEXT_SEARCH_CALLS=${MAX_TEXT_SEARCH_CALLS} (actuel: ${nbTextSearch}). Appel refusé.`)
+    if (nbTextSearch + 1 > limiteTextSearch) {
+      throw new Error(`Garde-fou : prochain Text Search dépasserait la limite=${limiteTextSearch} (actuel: ${nbTextSearch}). Appel refusé.`)
     }
     const query = `${reference.enseigne || reference.raisonSociale} ${reference.adresse} ${reference.codePostal} ${reference.commune}`
     const candidats = await client.textSearch(query)
@@ -46,8 +49,8 @@ export async function enrichirBatch(
 
     if ((matchGoogle.statut === 'MATCH_FORT' || matchGoogle.statut === 'MATCH_PROBABLE') && matchGoogle.candidatRetenu) {
       // Contrôle PRÉVENTIF avant l'appel Place Details — jamais après coup.
-      if (nbPlaceDetails + 1 > MAX_PLACE_DETAILS_CALLS) {
-        throw new Error(`Garde-fou : prochain Place Details dépasserait MAX_PLACE_DETAILS_CALLS=${MAX_PLACE_DETAILS_CALLS} (actuel: ${nbPlaceDetails}). Appel refusé.`)
+      if (nbPlaceDetails + 1 > limitePlaceDetails) {
+        throw new Error(`Garde-fou : prochain Place Details dépasserait la limite=${limitePlaceDetails} (actuel: ${nbPlaceDetails}). Appel refusé.`)
       }
       const details = await client.placeDetails(matchGoogle.candidatRetenu.placeId)
       nbPlaceDetails++
@@ -70,7 +73,7 @@ export async function enrichirBatch(
   }
 
   // Contrôle final, conservé en complément du contrôle préventif (défense en profondeur).
-  if (nbTextSearch > MAX_TEXT_SEARCH_CALLS || nbPlaceDetails > MAX_PLACE_DETAILS_CALLS) {
+  if (nbTextSearch > limiteTextSearch || nbPlaceDetails > limitePlaceDetails) {
     throw new Error(`Anomalie : compteur final dépassé (textSearch=${nbTextSearch}, placeDetails=${nbPlaceDetails})`)
   }
 

@@ -21,7 +21,7 @@ async function main() {
       await enrichirBatch(refs(11), async () => null, mockClient)
       t('1. FAIL attendu', false)
     } catch (e: any) {
-      t('1. MAX_COMPANIES(11>10) refuse AVANT tout appel (mock jamais invoqué)', !clientAppele && e.message.includes('MAX_COMPANIES'))
+      t('1. MAX_COMPANIES(11>10) refuse AVANT tout appel (mock jamais invoqué)', !clientAppele && e.message.includes('limite=10'))
     }
   }
 
@@ -42,11 +42,11 @@ async function main() {
   {
     const fs = require('fs')
     const src = fs.readFileSync(__dirname + '/orchestrateur.ts', 'utf-8')
-    const idxControlePreventifTS = src.indexOf('nbTextSearch + 1 > MAX_TEXT_SEARCH_CALLS')
+    const idxControlePreventifTS = src.indexOf('nbTextSearch + 1 > limiteTextSearch')
     const idxAppelTextSearch = src.indexOf('await client.textSearch')
     t('3. Contrôle préventif Text Search AVANT l\'appel réel (dans le code source)', idxControlePreventifTS > 0 && idxControlePreventifTS < idxAppelTextSearch)
 
-    const idxControlePreventifPD = src.indexOf('nbPlaceDetails + 1 > MAX_PLACE_DETAILS_CALLS')
+    const idxControlePreventifPD = src.indexOf('nbPlaceDetails + 1 > limitePlaceDetails')
     const idxAppelPlaceDetails = src.indexOf('await client.placeDetails')
     t('3b. Contrôle préventif Place Details AVANT l\'appel réel (dans le code source)', idxControlePreventifPD > 0 && idxControlePreventifPD < idxAppelPlaceDetails)
   }
@@ -55,7 +55,7 @@ async function main() {
   {
     const fs = require('fs')
     const src = fs.readFileSync(__dirname + '/orchestrateur.ts', 'utf-8')
-    t('4. Contrôle final des compteurs toujours présent en complément', src.includes('nbTextSearch > MAX_TEXT_SEARCH_CALLS') && src.includes('nbPlaceDetails > MAX_PLACE_DETAILS_CALLS'))
+    t('4. Contrôle final des compteurs toujours présent en complément', src.includes('nbTextSearch > limiteTextSearch') && src.includes('nbPlaceDetails > limitePlaceDetails'))
   }
 
   console.log('')
