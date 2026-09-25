@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import crypto from 'crypto'
-import { enrichirBatch } from '@/lib/enrichissement/orchestrateur'
+import { enrichirBatchAvecReprise } from '@/lib/enrichissement/orchestrateur-reprise'
+import { supabasePersistanceClient } from '@/lib/enrichissement/persistance'
 import { BAT_50 } from '@/lib/enrichissement/bat-50-vsg'
 
 function getToken(): string {
@@ -10,14 +11,19 @@ function getToken(): string {
 }
 
 // ══════════════════════════════════════════════════════════════
-// ENRICH.VSG.5B — BAT 50. Jeu figé (BAT_50, codé en dur dans
-// bat-50-vsg.ts), jamais lu depuis le body HTTP. Les 10 DEJA_ENRICHI sont
-// filtrées AVANT tout appel — enrichirBatch() n'est appelé QUE sur les
-// A_INTERROGER (40 max), sous le plafond quotidien Google (50).
+// ENRICH.VSG.6 + VSG.6B — BAT 50 avec reprise par étape et hard-stops
+// applicatifs explicites. Jeu figé (BAT_50, codé en dur), jamais lu
+// depuis le body HTTP. Les 10 DEJA_ENRICHI restent exclues en amont
+// (bat-50-vsg.ts, Option A — jamais insérées dans enrichissement_resultats).
+//
+// Limites FOURNIES EXPLICITEMENT par cette route (jamais un défaut
+// implicite lié à MAX_COMPANIES de l'ancien POC) — exactement le nombre
+// de A_INTERROGER (40), sous le plafond quotidien Google (50).
 // ══════════════════════════════════════════════════════════════
-const LIMITE_TEXT_SEARCH_BAT50 = 40 // = nombre exact de A_INTERROGER, sous le plafond Google 50/jour
-const LIMITE_PLACE_DETAILS_BAT50 = 40
-const LIMITE_COMPANIES_BAT50 = 40 // = uniquement les A_INTERROGER transmises à enrichirBatch
+const LOT_CODE = 'VSG_BAT50'
+const SOURCE = 'GOOGLE_PLACES'
+const MAX_TEXT_SEARCH_BAT50 = 40
+const MAX_PLACE_DETAILS_BAT50 = 40
 
 async function fetchPageSimple(url: string): Promise<string | null> {
   try {
@@ -40,34 +46,21 @@ export async function POST() {
   }
 
   const dejaEnrichi = BAT_50.filter((e) => e.statut === 'DEJA_ENRICHI')
-  const aInterroger = BAT_50.filter((e) => e.statut === 'A_INTERROGER')
+  const aInterroger = BAT_50.filter((e) => e.statut === 'A_INTERROGER').map((e) => ({ ...e, lotCode: LOT_CODE }))
 
   try {
-    const { fiches, nbTextSearch, nbPlaceDetails } = await enrichirBatch(
-      aInterroger, fetchPageSimple, undefined,
-      LIMITE_COMPANIES_BAT50, LIMITE_TEXT_SEARCH_BAT50, LIMITE_PLACE_DETAILS_BAT50
+    const resultat = await enrichirBatchAvecReprise(
+      aInterroger, SOURCE, supabasePersistanceClient(), fetchPageSimple,
+      MAX_TEXT_SEARCH_BAT50, MAX_PLACE_DETAILS_BAT50
     )
 
-    const resultatsNouveaux = fiches.map((f) => ({
-      siren: f.reference.siren, entreprise: f.reference.raisonSociale,
-      secteur: (BAT_50.find((b) => b.siren === f.reference.siren) as any)?.secteur ?? null,
-      statut: 'A_INTERROGER',
-      matching: f.matchGoogle.statut, score: f.matchGoogle.score,
-      candidatsExamines: f.matchGoogle.candidatsExamines,
-      placeId: f.placeIdGoogle, telephone: f.telephone?.valeur ?? null, site: f.siteWeb?.valeur ?? null, email: f.email?.valeur ?? null,
-      contactabilite: f.contactabilite,
-    }))
-
-    const resultatsDejaEnrichis = dejaEnrichi.map((e) => ({
-      siren: e.siren, entreprise: e.raisonSociale, secteur: e.secteur, statut: 'DEJA_ENRICHI',
-      matching: null, note: 'Déjà interrogé lors du BAT 1 / retest 6 — non réinterrogé ici',
-    }))
-
     return NextResponse.json({
-      dejaEnrichi: resultatsDejaEnrichis,
-      nouveaux: resultatsNouveaux,
-      textSearchCalls: nbTextSearch,
-      placeDetailsCalls: nbPlaceDetails,
+      statutGlobal: resultat.statutGlobal, // 'TERMINE' | 'PARTIEL_QUOTA_ATTEINT'
+      traites: resultat.traites,
+      restants: resultat.restants,
+      sirenRestants: resultat.sirenRestants,
+      textSearchCalls: resultat.nbTextSearch,
+      placeDetailsCalls: resultat.nbPlaceDetails,
       nombreDejaEnrichi: dejaEnrichi.length,
       nombreAInterroger: aInterroger.length,
     })

@@ -1,5 +1,29 @@
 import type { CandidatGooglePlace } from './types'
 
+/** Erreur dédiée 429 — distincte de toute autre erreur HTTP, pour que
+ * l'orchestrateur puisse réagir différemment (arrêt fatal du batch, pas
+ * une simple erreur locale à une entreprise). */
+export class QuotaAtteinteError extends Error {
+  constructor(public endpoint: 'textSearch' | 'placeDetails') {
+    super(`Google Places ${endpoint}: 429 (quota atteint)`)
+    this.name = 'QuotaAtteinteError'
+  }
+}
+
+/** ENRICH.VSG.6B — Erreur 4xx NON retryable (400/401/403/404) : un
+ * réessai immédiat ou lors d'une reprise ultérieure échouerait à
+ * l'identique (requête malformée, clé invalide, ressource introuvable).
+ * Distincte d'une erreur 5xx/réseau, elle-même transitoire et retryable
+ * lors d'une prochaine reprise. */
+export class ErreurNonRetryable extends Error {
+  constructor(public endpoint: 'textSearch' | 'placeDetails', public statusCode: number) {
+    super(`Google Places ${endpoint}: ${statusCode} (non retryable)`)
+    this.name = 'ErreurNonRetryable'
+  }
+}
+
+const CODES_NON_RETRYABLES = [400, 401, 403, 404]
+
 // FieldMask EXPLICITE et MINIMAL — jamais "*". Documenté : chaque champ
 // déclenche le SKU indiqué en commentaire (cf. rapport ENRICH.VSG.1 pour
 // le détail des coûts).
@@ -39,6 +63,8 @@ export function realGooglePlacesClient(): GooglePlacesClient {
         },
         body: JSON.stringify({ textQuery: query }),
       })
+      if (res.status === 429) throw new QuotaAtteinteError('textSearch')
+      if (CODES_NON_RETRYABLES.includes(res.status)) throw new ErreurNonRetryable('textSearch', res.status)
       if (!res.ok) throw new Error(`Google Places textSearch: ${res.status}`)
       const json = await res.json()
       return (json.places ?? []).map((p: any) => ({
@@ -50,6 +76,8 @@ export function realGooglePlacesClient(): GooglePlacesClient {
       const res = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
         headers: { 'X-Goog-Api-Key': apiKey, 'X-Goog-FieldMask': PLACE_DETAILS_FIELD_MASK }, // SKU: Place Details Pro
       })
+      if (res.status === 429) throw new QuotaAtteinteError('placeDetails')
+      if (CODES_NON_RETRYABLES.includes(res.status)) throw new ErreurNonRetryable('placeDetails', res.status)
       if (!res.ok) throw new Error(`Google Places placeDetails: ${res.status}`)
       const json = await res.json()
       return {
