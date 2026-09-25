@@ -23,6 +23,19 @@ export interface CandidatGooglePlace {
   placeId: string
   displayName: string
   formattedAddress: string
+  primaryType?: string | null
+  types?: string[]
+}
+
+export interface DetailScoreCandidat {
+  placeId: string
+  displayName: string
+  formattedAddress: string
+  scoreNom: number
+  scoreAdresse: number
+  scoreComposite: number
+  codePostalPresent: boolean
+  plausible: boolean
 }
 
 export interface ResultatMatching {
@@ -30,6 +43,8 @@ export interface ResultatMatching {
   candidatRetenu: CandidatGooglePlace | null
   score: number // 0-1, jamais exposé comme vérité absolue, seulement un signal
   raisons: string[]
+  /** ENRICH.VSG.4 — détail des 3 meilleurs candidats maximum, pour diagnostic. */
+  candidatsExamines: DetailScoreCandidat[]
 }
 
 export type SourceDonnee = 'SIRENE' | 'GOOGLE_PLACES' | 'SITE_OFFICIEL_CONTACT' | 'SITE_OFFICIEL_MENTIONS' | 'SITE_OFFICIEL_AUTRE' | 'WEB_SEARCH_GENERIQUE'
