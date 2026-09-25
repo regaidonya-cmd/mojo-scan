@@ -53,7 +53,7 @@ async function main() {
     const fiche: Pick<FicheEnrichie, 'telephone' | 'email' | 'siteWeb' | 'matchGoogle'> = {
       telephone: { valeur: '+33123456789', source: 'GOOGLE_PLACES', urlSource: null, niveauConfiance: 'CONFIRME' },
       email: null, siteWeb: null,
-      matchGoogle: { statut: 'MATCH_FORT', candidatRetenu: null, score: 0.9, raisons: [] },
+      matchGoogle: { statut: 'MATCH_FORT', candidatRetenu: null, score: 0.9, raisons: [], candidatsExamines: [] },
     }
     const r = calculerContactabilite(fiche, false)
     t('6. Téléphone confirmé sans site -> BONNE', r.contactabilite === 'BONNE')
@@ -64,7 +64,7 @@ async function main() {
     const fiche: Pick<FicheEnrichie, 'telephone' | 'email' | 'siteWeb' | 'matchGoogle'> = {
       telephone: null, email: null,
       siteWeb: { valeur: 'https://allopoulet.fr', source: 'GOOGLE_PLACES', urlSource: null, niveauConfiance: 'CONFIRME' },
-      matchGoogle: { statut: 'MATCH_FORT', candidatRetenu: null, score: 0.9, raisons: [] },
+      matchGoogle: { statut: 'MATCH_FORT', candidatRetenu: null, score: 0.9, raisons: [], candidatsExamines: [] },
     }
     const r = calculerContactabilite(fiche, false)
     t('7. Site confirmé + match fort, sans téléphone -> BONNE', r.contactabilite === 'BONNE')
@@ -105,7 +105,7 @@ async function main() {
   {
     const fiche: Pick<FicheEnrichie, 'telephone' | 'email' | 'siteWeb' | 'matchGoogle'> = {
       telephone: null, email: null, siteWeb: null,
-      matchGoogle: { statut: 'AMBIGU', candidatRetenu: null, score: 0.4, raisons: ['ambigu'] },
+      matchGoogle: { statut: 'AMBIGU', candidatRetenu: null, score: 0.4, raisons: ['ambigu'], candidatsExamines: [] },
     }
     const r = calculerContactabilite(fiche, false)
     t('12. Fiche ambiguë sans coordonnée -> INSUFFISANTE (jamais BONNE par défaut)', r.contactabilite === 'INSUFFISANTE')

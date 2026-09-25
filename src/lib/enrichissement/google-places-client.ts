@@ -3,7 +3,7 @@ import type { CandidatGooglePlace } from './types'
 // FieldMask EXPLICITE et MINIMAL — jamais "*". Documenté : chaque champ
 // déclenche le SKU indiqué en commentaire (cf. rapport ENRICH.VSG.1 pour
 // le détail des coûts).
-const TEXT_SEARCH_FIELD_MASK = 'places.id,places.displayName,places.formattedAddress' // Pro SKU (Text Search)
+const TEXT_SEARCH_FIELD_MASK = 'places.id,places.displayName,places.formattedAddress,places.primaryType,places.types' // Pro SKU (Text Search) — primaryType/types = champs Essentials, n'augmentent pas le tier déjà requis par displayName/formattedAddress
 const PLACE_DETAILS_FIELD_MASK = 'id,displayName,formattedAddress,nationalPhoneNumber,websiteUri,googleMapsUri' // Pro SKU (Place Details — "Contact" fields)
 
 /** Garde-fou dur — appliqué explicitement par l'orchestrateur, pas une simple convention. */
@@ -43,6 +43,7 @@ export function realGooglePlacesClient(): GooglePlacesClient {
       const json = await res.json()
       return (json.places ?? []).map((p: any) => ({
         placeId: p.id, displayName: p.displayName?.text ?? '', formattedAddress: p.formattedAddress ?? '',
+        primaryType: p.primaryType ?? null, types: p.types ?? [],
       }))
     },
     async placeDetails(placeId: string) {
