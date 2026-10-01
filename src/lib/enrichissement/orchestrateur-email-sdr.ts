@@ -1,5 +1,7 @@
 import { extraireEmailsEntreprise } from './extraction-email-sdr'
 import type { ResultatExtractionEntreprise } from './extraction-email-sdr'
+import { qualifierLotEntreprises } from './qualification-email-v2'
+import type { ResultatQualifieEntreprise } from './qualification-email-v2'
 
 export interface RapportExtractionGlobal {
   nbSites: number
@@ -8,25 +10,27 @@ export interface RapportExtractionGlobal {
   totalEmailsRetenus: number
   totalEmailsAVerifier: number
   resultats: ResultatExtractionEntreprise[]
+  qualificationV2?: ResultatQualifieEntreprise[] // additif — présent uniquement si communeCible fourni
 }
 
 /**
- * executerExtractionEmailSdr — ÉTAPE 1 UNIQUEMENT. Lit les sites déjà
- * obtenus (company_id, siren, site_web) et extrait les emails. NE
- * PERSISTE RIEN — retourne uniquement un rapport JSON pour inspection
- * manuelle. La persistance dans personnes_moyens_contact sera une étape
- * séparée, après validation explicite de la qualité des résultats.
+ * executerExtractionEmailSdr — extraction (V1, inchangée) + qualification
+ * V2 OPTIONNELLE et ADDITIVE (non-breaking : les appels existants sans
+ * communeCible conservent exactement le même comportement qu'avant).
+ * NE PERSISTE RIEN — retourne uniquement un rapport JSON pour inspection.
  */
 export async function executerExtractionEmailSdr(
-  sites: { companyId: string; siren: string; siteWeb: string }[],
-  fetchFn?: (url: string) => Promise<{ status: number; html: string; urlFinale: string }>
+  sites: { companyId: string; siren: string; siteWeb: string; telephone?: string | null; telephoneFiable?: boolean }[],
+  fetchFn?: (url: string) => Promise<{ status: number; html: string; urlFinale: string }>,
+  communeCible?: string,
+  aliasesCommune?: string[]
 ): Promise<RapportExtractionGlobal> {
   const resultats: ResultatExtractionEntreprise[] = []
   for (const site of sites) {
     resultats.push(await extraireEmailsEntreprise(site.companyId, site.siren, site.siteWeb, fetchFn))
   }
 
-  return {
+  const rapport: RapportExtractionGlobal = {
     nbSites: sites.length,
     nbAvecAuMoinsUnEmailRetenu: resultats.filter((r) => r.nbRetenus > 0).length,
     nbSansEmail: resultats.filter((r) => r.nbRetenus === 0 && r.nbAVerifier === 0).length,
@@ -34,4 +38,15 @@ export async function executerExtractionEmailSdr(
     totalEmailsAVerifier: resultats.reduce((acc, r) => acc + r.nbAVerifier, 0),
     resultats,
   }
+
+  if (communeCible) {
+    const entrees = sites.map((site, i) => ({
+      companyId: site.companyId, siren: site.siren, siteWeb: site.siteWeb,
+      telephone: site.telephone ?? null, telephoneFiable: site.telephoneFiable ?? false,
+      emailsTrouves: resultats[i].emailsTrouves, communeCible, aliasesCommune,
+    }))
+    rapport.qualificationV2 = qualifierLotEntreprises(entrees)
+  }
+
+  return rapport
 }
