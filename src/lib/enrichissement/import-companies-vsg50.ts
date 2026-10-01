@@ -63,6 +63,7 @@ export type StatutImportEntreprise = 'CREE' | 'DEJA_PRESENT' | 'ERREUR_COMPENSEE
 
 export interface ResultatImportEntreprise {
   siren: string
+  companyId: string | null
   statutCompany: StatutImportEntreprise
   statutEtablissement: 'CREE' | 'DEJA_PRESENT' | 'NON_TENTE'
   erreur: string | null
@@ -88,23 +89,23 @@ export async function importerEntreprise(
     const resultat = await client.trouverOuCreerCompany(entreprise)
     companyId = resultat.id
   } catch (e: any) {
-    return { siren: entreprise.siren, statutCompany: 'ERREUR_COMPENSEE', statutEtablissement: 'NON_TENTE', erreur: `trouverOuCreerCompany: ${e.message}` }
+    return { siren: entreprise.siren, companyId: null, statutCompany: 'ERREUR_COMPENSEE', statutEtablissement: 'NON_TENTE', erreur: `trouverOuCreerCompany: ${e.message}` }
   }
 
   const etablissementDejaPresent = await client.etablissementExisteDeja(entreprise.siret)
   if (etablissementDejaPresent) {
-    return { siren: entreprise.siren, statutCompany: dejaPresenteAvant ? 'DEJA_PRESENT' : 'CREE', statutEtablissement: 'DEJA_PRESENT', erreur: null }
+    return { siren: entreprise.siren, companyId, statutCompany: dejaPresenteAvant ? 'DEJA_PRESENT' : 'CREE', statutEtablissement: 'DEJA_PRESENT', erreur: null }
   }
 
   try {
     await client.insererEtablissement(companyId, entreprise)
-    return { siren: entreprise.siren, statutCompany: dejaPresenteAvant ? 'DEJA_PRESENT' : 'CREE', statutEtablissement: 'CREE', erreur: null }
+    return { siren: entreprise.siren, companyId, statutCompany: dejaPresenteAvant ? 'DEJA_PRESENT' : 'CREE', statutEtablissement: 'CREE', erreur: null }
   } catch (e: any) {
     // Compensation UNIQUEMENT si la company vient d'être créée dans CET appel.
     if (!dejaPresenteAvant) {
       try { await client.supprimerCompany(companyId) } catch { /* best-effort — signalé dans le résultat même si la compensation échoue */ }
     }
-    return { siren: entreprise.siren, statutCompany: 'ERREUR_COMPENSEE', statutEtablissement: 'NON_TENTE', erreur: `insert etablissement: ${e.message}` }
+    return { siren: entreprise.siren, companyId: null, statutCompany: 'ERREUR_COMPENSEE', statutEtablissement: 'NON_TENTE', erreur: `insert etablissement: ${e.message}` }
   }
 }
 
