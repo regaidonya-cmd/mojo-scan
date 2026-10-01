@@ -1,5 +1,6 @@
 import { MEMBRES_VSG_SDR_ENRICH_01 } from './donnees-lot-sdr-vsg-enrich-01'
 import { MEMBRES_VSG_SDR_ENRICH_02 } from './donnees-lot-sdr-vsg-enrich-02'
+import { MEMBRES_VSG_SDR_ENRICH_03 } from './donnees-lot-sdr-vsg-enrich-03'
 import type { MembreLotSdr } from './donnees-lot-sdr-vsg-enrich-01'
 
 // ══════════════════════════════════════════════════════════════
@@ -13,6 +14,7 @@ import type { MembreLotSdr } from './donnees-lot-sdr-vsg-enrich-01'
 export const REGISTRE_LOTS_SDR: Record<string, MembreLotSdr[]> = {
   VSG_SDR_ENRICH_01: MEMBRES_VSG_SDR_ENRICH_01,
   VSG_SDR_ENRICH_02: MEMBRES_VSG_SDR_ENRICH_02,
+  VSG_SDR_ENRICH_03: MEMBRES_VSG_SDR_ENRICH_03,
 }
 
 export function lotConnu(lotCode: string): boolean {
