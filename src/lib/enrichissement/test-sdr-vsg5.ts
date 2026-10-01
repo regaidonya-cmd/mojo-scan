@@ -116,7 +116,7 @@ async function main() {
     t('4d. Aucun import de donnees-lot-sdr-vsg-enrich-01 (liste figée) dans la route', !src.includes('donnees-lot-sdr-vsg-enrich-01'))
     t('4e. Réutilise enrichirBatchAvecReprise (pas de second moteur)', src.includes('enrichirBatchAvecReprise'))
     t('4f. Réutilise supabasePersistanceClient (ENRICH.VSG.6)', src.includes('supabasePersistanceClient'))
-    t('4g. admin_auth vérifié', src.includes('admin_auth') && src.includes('status: 401'))
+    t('4g. admin_auth vérifié', (src.includes('admin_auth') || src.includes('estAutoriseAdmin')) && src.includes('status: 401'))
     t('4h. Clé Google vérifiée avant tout traitement', src.includes('GOOGLE_PLACES_API_KEY'))
   }
 

@@ -1,16 +1,10 @@
-import { cookies } from 'next/headers'
-import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
+import { estAutoriseAdmin } from '@/lib/sales/auth-session'
 import { DS } from '@/lib/ds/tokens'
 import { SynchroniserBrevoButton } from '@/components/sales/SynchroniserBrevoButton'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
-
-function getToken(): string {
-  const secret = process.env.ADMIN_PASSWORD ?? ''
-  return crypto.createHash('sha256').update(secret).digest('hex')
-}
 
 function supabaseServer() {
   return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -19,9 +13,7 @@ function supabaseServer() {
 }
 
 export default async function LotPage({ params }: { params: { lotId: string } }) {
-  const cookieStore = cookies()
-  const authCookie = cookieStore.get('admin_auth')?.value
-  if (authCookie !== getToken()) {
+  if (!(await estAutoriseAdmin())) {
     return (
       <div style={{ minHeight: '100vh', background: '#F7F6FC', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif' }}>
         <form method="POST" action="/api/admin/login" style={{ background: '#fff', padding: 32, borderRadius: 16, border: '1px solid #EDEAF5', width: 320 }}>

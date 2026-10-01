@@ -1,16 +1,11 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import { synchroniserLot, realBrevoClient } from '@/lib/brevo/sales-sync'
 import { fetchReservoirCampagne } from '@/lib/campagnes/fetch-reservoir'
 import { determinerMembresSynchronisables } from '@/lib/campagnes/engine'
 import type { MembreASynchroniser } from '@/lib/brevo/sales-types'
+import { estAutoriseAdmin } from '@/lib/sales/auth-session'
 
-function getToken(): string {
-  const secret = process.env.ADMIN_PASSWORD ?? ''
-  return crypto.createHash('sha256').update(secret).digest('hex')
-}
 
 function supabaseServer() {
   return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -19,8 +14,7 @@ function supabaseServer() {
 }
 
 export async function POST(req: Request, { params }: { params: { lotId: string } }) {
-  const cookieStore = cookies()
-  if (cookieStore.get('admin_auth')?.value !== getToken()) {
+  if (!(await estAutoriseAdmin())) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 

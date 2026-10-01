@@ -1,16 +1,11 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import { membresDuLot } from '@/lib/enrichissement/registre-lots-sdr'
 import { persisterLotSdr } from '@/lib/enrichissement/persister-lot-sdr'
 import { creerPersistanceImportSupabase } from '@/lib/enrichissement/persistance-import-supabase'
 import { creerPersistanceLotSdrSupabase } from '@/lib/enrichissement/persistance-lot-sdr-supabase'
+import { estAutoriseAdmin } from '@/lib/sales/auth-session'
 
-function getToken(): string {
-  const secret = process.env.ADMIN_PASSWORD ?? ''
-  return crypto.createHash('sha256').update(secret).digest('hex')
-}
 
 const LOT_CODE_DEFAUT = 'VSG_SDR_ENRICH_01' // comportement inchangé si aucun lotCode fourni (non-breaking)
 const SOURCE_CODE = 'SIRENE_SDR_VSG'
@@ -28,8 +23,7 @@ const SOURCE_CODE = 'SIRENE_SDR_VSG'
 // relancer cet appel sur un lot déjà persisté ne crée ni ne modifie rien.
 // ══════════════════════════════════════════════════════════════
 export async function POST(request: Request) {
-  const cookieStore = cookies()
-  if (cookieStore.get('admin_auth')?.value !== getToken()) {
+  if (!(await estAutoriseAdmin())) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 

@@ -75,7 +75,7 @@ async function main() {
       t(`4b. [${route}] Refuse un lot inconnu (status 400)`, src.includes('status: 400'))
       t(`4c. [${route}] Lit lotCode depuis le corps de requête, pas depuis l'URL/query brute non validée`, src.includes('body?.lotCode') || src.includes('body.lotCode'))
       t(`4d. [${route}] Comportement par défaut préservé (non-breaking)`, src.includes("LOT_CODE_DEFAUT = 'VSG_SDR_ENRICH_01'"))
-      t(`4e. [${route}] admin_auth toujours vérifié`, src.includes('admin_auth') && src.includes('status: 401'))
+      t(`4e. [${route}] admin_auth toujours vérifié`, (src.includes('admin_auth') || src.includes('estAutoriseAdmin')) && src.includes('status: 401'))
     }
   }
 

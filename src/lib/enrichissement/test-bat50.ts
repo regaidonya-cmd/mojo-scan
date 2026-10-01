@@ -71,7 +71,7 @@ async function main() {
     t('7. La route appelle enrichirBatchAvecReprise(aInterroger, ...) et non BAT_50 entier', /enrichirBatchAvecReprise\(\s*aInterroger/.test(routeSrc))
     t('7b. dejaEnrichi jamais transmis à enrichirBatchAvecReprise', routeSrc.includes('const dejaEnrichi = BAT_50.filter') && !/enrichirBatchAvecReprise\([^)]*dejaEnrichi/.test(routeSrc))
     t('7c. MAX_TEXT_SEARCH_BAT50 = 40, sous le plafond Google (50/jour)', routeSrc.includes('MAX_TEXT_SEARCH_BAT50 = 40'))
-    t('8. admin_auth vérifié', routeSrc.includes('admin_auth') && routeSrc.includes('status: 401'))
+    t('8. admin_auth vérifié', (routeSrc.includes('admin_auth') || routeSrc.includes('estAutoriseAdmin')) && routeSrc.includes('status: 401'))
     t('8b. Seul POST exporté', routeSrc.includes('export async function POST') && !routeSrc.includes('export async function GET'))
     t('8c. Aucune lecture du body HTTP', !routeSrc.includes('req.json()') && !routeSrc.includes('request.json()'))
     t('8d. Aucun client Supabase importé DIRECTEMENT dans la route (délégué à persistance.ts)', !routeSrc.includes("from '@supabase/supabase-js'") && !routeSrc.includes('createClient('))

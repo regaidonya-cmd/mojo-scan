@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import { lireLotDepuisDB } from '@/lib/enrichissement/lecture-lot-sdr'
 import { enrichirBatchAvecReprise } from '@/lib/enrichissement/orchestrateur-reprise'
@@ -8,11 +6,8 @@ import { supabasePersistanceClient } from '@/lib/enrichissement/persistance'
 import { construireRapportPostLot } from '@/lib/enrichissement/rapport-post-lot'
 import { compterTelephonesFiables } from '@/lib/enrichissement/compteur-objectif-sdr'
 import { lotConnu } from '@/lib/enrichissement/registre-lots-sdr'
+import { estAutoriseAdmin } from '@/lib/sales/auth-session'
 
-function getToken(): string {
-  const secret = process.env.ADMIN_PASSWORD ?? ''
-  return crypto.createHash('sha256').update(secret).digest('hex')
-}
 
 const LOT_CODE_DEFAUT = 'VSG_SDR_ENRICH_01' // comportement inchangé si aucun lotCode fourni (non-breaking)
 const SOURCE = 'GOOGLE_PLACES'
@@ -45,8 +40,7 @@ async function fetchPageSimple(url: string): Promise<string | null> {
 // A_TRAITER) n'est jamais réinterrogée, quel que soit le lot.
 // ══════════════════════════════════════════════════════════════
 export async function POST(request: Request) {
-  const cookieStore = cookies()
-  if (cookieStore.get('admin_auth')?.value !== getToken()) {
+  if (!(await estAutoriseAdmin())) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 

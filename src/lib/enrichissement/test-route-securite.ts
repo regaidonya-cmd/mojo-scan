@@ -6,7 +6,7 @@ async function main() {
   const routeSrc = fs.readFileSync(__dirname + '/../../app/api/admin/test-enrichissement-vsg/route.ts', 'utf-8')
 
   // 1. Route non authentifiée refusée
-  t('1. Vérification admin_auth présente dans la route', routeSrc.includes('admin_auth') && routeSrc.includes("status: 401"))
+  t('1. Vérification admin_auth présente dans la route', (routeSrc.includes('admin_auth') || routeSrc.includes('estAutoriseAdmin')) && routeSrc.includes("status: 401"))
 
   // 2. GET refusé
   t('2. Seul POST est exporté (GET non défini -> 405 automatique Next.js)', routeSrc.includes('export async function POST') && !routeSrc.includes('export async function GET'))
