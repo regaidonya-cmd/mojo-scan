@@ -5,7 +5,7 @@ async function main() {
   const fs = require('fs')
   const routeSrc = fs.readFileSync(__dirname + '/../../app/api/admin/test-enrichissement-vsg-retest6/route.ts', 'utf-8')
 
-  t('1. Vérification admin_auth présente', routeSrc.includes('admin_auth') && routeSrc.includes('status: 401'))
+  t('1. Vérification admin_auth présente', (routeSrc.includes('admin_auth') || routeSrc.includes('estAutoriseAdmin')) && routeSrc.includes('status: 401'))
   t('2. Seul POST est exporté (GET refusé structurellement)', routeSrc.includes('export async function POST') && !routeSrc.includes('export async function GET'))
 
   const idxKeyCheck = routeSrc.indexOf('GOOGLE_PLACES_API_KEY absente')

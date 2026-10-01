@@ -1,13 +1,8 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import crypto from 'crypto'
 import { enrichirBatch, MAX_TEXT_SEARCH_CALLS, MAX_PLACE_DETAILS_CALLS } from '@/lib/enrichissement/orchestrateur'
 import type { EtablissementReference } from '@/lib/enrichissement/types'
+import { estAutoriseAdmin } from '@/lib/sales/auth-session'
 
-function getToken(): string {
-  const secret = process.env.ADMIN_PASSWORD ?? ''
-  return crypto.createHash('sha256').update(secret).digest('hex')
-}
 
 // ══════════════════════════════════════════════════════════════
 // ENRICH.VSG.2B — Jeu de recette figé, codé en dur. AUCUN moyen de le
@@ -43,8 +38,7 @@ async function fetchPageSimple(url: string): Promise<string | null> {
 }
 
 export async function POST() {
-  const cookieStore = cookies()
-  if (cookieStore.get('admin_auth')?.value !== getToken()) {
+  if (!(await estAutoriseAdmin())) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 

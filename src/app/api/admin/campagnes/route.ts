@@ -1,13 +1,8 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import { controleAjoutMembreLot } from '@/lib/campagnes/engine'
+import { estAutoriseAdmin } from '@/lib/sales/auth-session'
 
-function getToken(): string {
-  const secret = process.env.ADMIN_PASSWORD ?? ''
-  return crypto.createHash('sha256').update(secret).digest('hex')
-}
 
 function supabaseServer() {
   return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -16,8 +11,7 @@ function supabaseServer() {
 }
 
 export async function POST(req: Request) {
-  const cookieStore = cookies()
-  if (cookieStore.get('admin_auth')?.value !== getToken()) {
+  if (!(await estAutoriseAdmin())) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 

@@ -68,7 +68,7 @@ const population: FakeVM[] = [
   t('8. Route API crée bien une campagne (insert sur table campagnes)', apiSrc.includes("from('campagnes')") && apiSrc.includes('.insert('))
   t('9. Route API crée bien un lot (insert sur campagne_lots)', apiSrc.includes("from('campagne_lots')"))
   t('10. Route API crée les membres et trace la raison d\'exclusion', apiSrc.includes("from('campagne_lot_membres')") && apiSrc.includes('raison_exclusion'))
-  t('10b. Route API protégée par cookie admin (cohérent avec le reste du projet)', apiSrc.includes('admin_auth'))
+  t('10b. Route API protégée par cookie admin (cohérent avec le reste du projet)', (apiSrc.includes('admin_auth') || apiSrc.includes('estAutoriseAdmin')))
 }
 
 // 11. Page lot — vérification structurelle
@@ -76,7 +76,7 @@ const population: FakeVM[] = [
   const fs = require('fs')
   const pageSrc = fs.readFileSync(__dirname + '/../../app/admin/campagnes/[lotId]/page.tsx', 'utf-8')
   t('11. Page lot lit bien campagne_lots et campagne_lot_membres', pageSrc.includes("from('campagne_lots')") && pageSrc.includes("from('campagne_lot_membres')"))
-  t('11b. Page lot protégée par cookie admin', pageSrc.includes('admin_auth'))
+  t('11b. Page lot protégée par cookie admin', (pageSrc.includes('admin_auth') || pageSrc.includes('estAutoriseAdmin')))
 }
 
 // 12. Bouton Brevo désactivé, aucun appel Brevo

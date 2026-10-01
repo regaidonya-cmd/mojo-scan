@@ -1,22 +1,13 @@
-import { cookies } from 'next/headers'
-import crypto from 'crypto'
 import { fetchReservoirCampagne } from '@/lib/campagnes/fetch-reservoir'
+import { estAutoriseAdmin } from '@/lib/sales/auth-session'
 import { CampagneSelectionTable } from '@/components/sales/CampagneSelectionTable'
 import { SalesNav } from '@/components/sales/SalesNav'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-function getToken(): string {
-  const secret = process.env.ADMIN_PASSWORD ?? ''
-  return crypto.createHash('sha256').update(secret).digest('hex')
-}
-
 export default async function NouvelleCampagnePage() {
-  const cookieStore = cookies()
-  const authCookie = cookieStore.get('admin_auth')?.value
-
-  if (authCookie !== getToken()) {
+  if (!(await estAutoriseAdmin())) {
     return (
       <div style={{ minHeight: '100vh', background: '#F7F6FC', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif' }}>
         <form method="POST" action="/api/admin/login" style={{ background: '#fff', padding: 32, borderRadius: 16, border: '1px solid #EDEAF5', width: 320 }}>

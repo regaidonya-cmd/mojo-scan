@@ -1,13 +1,8 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import { executerExtractionEmailSdr } from '@/lib/enrichissement/orchestrateur-email-sdr'
+import { estAutoriseAdmin } from '@/lib/sales/auth-session'
 
-function getToken(): string {
-  const secret = process.env.ADMIN_PASSWORD ?? ''
-  return crypto.createHash('sha256').update(secret).digest('hex')
-}
 
 // Paramètre du territoire — jamais stocké en base, propre à ce benchmark.
 const COMMUNE_CIBLE = 'Villeneuve-Saint-Georges'
@@ -29,8 +24,7 @@ function normaliserTelephone(tel: string): string {
 // reste strictement inchangé (mêmes 28 lignes qu'en V1).
 // ══════════════════════════════════════════════════════════════
 export async function POST() {
-  const cookieStore = cookies()
-  if (cookieStore.get('admin_auth')?.value !== getToken()) {
+  if (!(await estAutoriseAdmin())) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 

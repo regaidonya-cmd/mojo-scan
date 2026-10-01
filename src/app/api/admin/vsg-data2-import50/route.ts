@@ -1,25 +1,19 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import { ENTREPRISES_SIRENE_VSG_50 } from '@/lib/enrichissement/donnees-sirene-vsg50'
 import { ENTREPRISES_SIRENE_VSG_COMPLEMENT_18 } from '@/lib/enrichissement/donnees-sirene-vsg50-complement'
 import { importerLotEntreprises, versEntrepriseAImporter } from '@/lib/enrichissement/import-companies-vsg50'
 import { creerPersistanceImportSupabase } from '@/lib/enrichissement/persistance-import-supabase'
 import { verifierCoherenceOuBloquer, IncoherenceImportError } from '@/lib/enrichissement/controle-coherence-import'
+import { estAutoriseAdmin } from '@/lib/sales/auth-session'
 
-function getToken(): string {
-  const secret = process.env.ADMIN_PASSWORD ?? ''
-  return crypto.createHash('sha256').update(secret).digest('hex')
-}
 
 const SOURCE_CODE = 'SIRENE_BAT_VSG_50'
 const LOT_CODE = 'VSG_BAT50'
 const SIREN_BLACK_HOLE = '819064395' // déjà existant dans companies (source='sales_import') — jamais recréé, seulement rattaché
 
 export async function POST() {
-  const cookieStore = cookies()
-  if (cookieStore.get('admin_auth')?.value !== getToken()) {
+  if (!(await estAutoriseAdmin())) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 

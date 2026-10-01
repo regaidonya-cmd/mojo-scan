@@ -1,16 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import { computeConsequence, isResultatValide, isOppositionScopeValide, isValidFutureIsoDate, type ResultatAppel, type OppositionScope } from '@/lib/priority/activite-consequence'
-
-function getToken(): string {
-  return crypto.createHash('sha256').update(process.env.ADMIN_PASSWORD ?? '').digest('hex')
-}
+import { estAutoriseAdmin } from '@/lib/sales/auth-session'
 
 export async function POST(req: NextRequest, { params }: { params: { companyId: string } }) {
-  const cookieStore = cookies()
-  if (cookieStore.get('admin_auth')?.value !== getToken()) {
+  if (!(await estAutoriseAdmin())) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
