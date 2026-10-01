@@ -16,6 +16,8 @@
 // régression future du modèle.
 // ══════════════════════════════════════════════════════════════
 
+export {}
+
 const results: { name: string; pass: boolean }[] = []
 function t(name: string, pass: boolean) { results.push({ name, pass }); console.log((pass ? 'PASS' : 'FAIL') + ' - ' + name) }
 
