@@ -1,6 +1,7 @@
 import { lotConnu, membresDuLot, REGISTRE_LOTS_SDR } from './registre-lots-sdr'
 import { MEMBRES_VSG_SDR_ENRICH_01 } from './donnees-lot-sdr-vsg-enrich-01'
 import { MEMBRES_VSG_SDR_ENRICH_02 } from './donnees-lot-sdr-vsg-enrich-02'
+import { MEMBRES_VSG_SDR_ENRICH_03 } from './donnees-lot-sdr-vsg-enrich-03'
 
 const results: { name: string; pass: boolean }[] = []
 function t(name: string, pass: boolean) { results.push({ name, pass }); console.log((pass ? 'PASS' : 'FAIL') + ' - ' + name) }
@@ -9,6 +10,7 @@ async function main() {
   // 1. Le registre connaît exactement les 2 lots attendus
   t('1. VSG_SDR_ENRICH_01 connu du registre', lotConnu('VSG_SDR_ENRICH_01'))
   t('1b. VSG_SDR_ENRICH_02 connu du registre', lotConnu('VSG_SDR_ENRICH_02'))
+  t('1f. VSG_SDR_ENRICH_03 connu du registre', lotConnu('VSG_SDR_ENRICH_03'))
   t('1c. Un lot arbitraire inconnu -> refusé', !lotConnu('VSG_SDR_ENRICH_99_INVENTE'))
   t('1d. Chaîne vide -> refusée', !lotConnu(''))
   t('1e. Tentative injection -> refusée', !lotConnu("'; DROP TABLE enrichissement_resultats; --"))
@@ -32,6 +34,20 @@ async function main() {
     const parFamille = new Map<string, number>()
     for (const m of MEMBRES_VSG_SDR_ENRICH_02) parFamille.set(m.famille, (parFamille.get(m.famille) ?? 0) + 1)
     t('3d. Répartition 15/13/12/10 respectée', parFamille.get('Bâtiment & artisans') === 15 && parFamille.get('Commerces de proximité') === 13 && parFamille.get('Professions libérales & conseil') === 12 && parFamille.get('Automobile & auto-écoles') === 10)
+  }
+
+  // 3e. Le lot 03 contient exactement 84 membres, 84 SIREN distincts, 0 chevauchement avec lot 01/02
+  t('3e. MEMBRES_VSG_SDR_ENRICH_03 contient exactement 84 entrées', MEMBRES_VSG_SDR_ENRICH_03.length === 84)
+  t('3f. Aucun doublon de SIREN dans le lot 03', new Set(MEMBRES_VSG_SDR_ENRICH_03.map((m) => m.siren)).size === 84)
+  {
+    const sirens0102 = new Set([...MEMBRES_VSG_SDR_ENRICH_01, ...MEMBRES_VSG_SDR_ENRICH_02].map((m) => m.siren))
+    const chevauchement = MEMBRES_VSG_SDR_ENRICH_03.filter((m) => sirens0102.has(m.siren))
+    t('3g. Aucun chevauchement SIREN entre lot 03 et lots 01/02', chevauchement.length === 0)
+  }
+  {
+    const parFamille = new Map<string, number>()
+    for (const m of MEMBRES_VSG_SDR_ENRICH_03) parFamille.set(m.famille, (parFamille.get(m.famille) ?? 0) + 1)
+    t('3h. Répartition 15/20/9/15/25 respectée', parFamille.get('Bâtiment & artisans') === 15 && parFamille.get('Commerces de proximité') === 20 && parFamille.get('Automobile & auto-écoles') === 9 && parFamille.get('Professions libérales & conseil') === 15 && parFamille.get('Restauration & métiers de bouche') === 25)
   }
 
   // 4. Routes — vérification structurelle : lot_code validé contre le registre, jamais accepté tel quel
