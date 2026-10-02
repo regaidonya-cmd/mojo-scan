@@ -13,6 +13,8 @@ import type { ProspectInput, ContactMethod, CommercialPriorityResult } from './t
 import type { BusinessModelResult } from './business-model'
 import { construireContactMethods } from './contacts-prospect'
 import type { LigneContact } from './contacts-prospect'
+import { calculerInsightV1, calculerQualiteContact, ficheGoogleRapprochee } from '../insight/insight-v1'
+import type { InsightV1, QualiteContact } from '../insight/insight-v1'
 
 // Villeneuve-Saint-Georges — centre de la zone de collecte P0.2B (cf run-66-v2.ts)
 const VSG = { lat: 48.7377, lng: 2.4453 }
@@ -49,6 +51,10 @@ export interface ProspectViewModel {
   assignedTo?: string | null
   besoinIdentifie?: string | null
   siteWeb?: string | null // site déjà obtenu à l'enrichissement (aucun nouveau chantier)
+  // INSIGHT V1 — calculé à la lecture, jamais persisté
+  insight?: InsightV1 | null
+  qualiteContact?: QualiteContact | null
+  statutEmailV2?: string | null
   emailEnrichissement?: string | null // email déjà obtenu à l'enrichissement, non qualifié ; jamais si opposition entreprise/canal email
 }
 
@@ -106,7 +112,7 @@ export async function fetchMaJourneeData(
 
   const { data: companies } = await supabase
     .from('companies')
-    .select('id, name, siren, naf, city')
+    .select('id, name, siren, naf, city, trade_name, employee_band')
     .in('id', companyIds)
 
   const { data: quals } = await supabase
@@ -118,7 +124,7 @@ export async function fetchMaJourneeData(
   // établissement non-siège quand aucun siège n'est connu (commune).
   const { data: etabs } = await supabase
     .from('etablissements')
-    .select('company_id, ville, latitude, longitude, siege')
+    .select('company_id, ville, latitude, longitude, siege, adresse, code_postal')
     .in('company_id', companyIds)
 
   // 2. Toutes les personnes de ces entreprises
@@ -131,20 +137,20 @@ export async function fetchMaJourneeData(
   // 3. Tous les moyens de contact rattachés à ces personnes
   const { data: pmc } = await supabase
     .from('personnes_moyens_contact')
-    .select('id, personne_id, moyen_contact_id, moyens_contact(type, valeur_normalisee)')
+    .select('id, personne_id, moyen_contact_id, niveau_confiance, moyens_contact(type, valeur_normalisee)')
     .in('personne_id', personneIds.length ? personneIds : ['00000000-0000-0000-0000-000000000000'])
 
   // 3b. PR3 — moyens de contact rattachés directement à l'ENTREPRISE
   // (personne_id NULL — ex. téléphone standard du portefeuille SDR).
   const { data: pmcEntreprise } = await supabase
     .from('personnes_moyens_contact')
-    .select('id, company_id, moyen_contact_id, moyens_contact(type, valeur_normalisee)')
+    .select('id, company_id, moyen_contact_id, niveau_confiance, moyens_contact(type, valeur_normalisee)')
     .in('company_id', companyIds)
 
   // 3c. PR3 — site / email déjà obtenus à l'enrichissement (lecture seule).
   const { data: enrichissements } = await supabase
     .from('enrichissement_resultats')
-    .select('company_id, site_web, email')
+    .select('company_id, site_web, email, place_id, candidats_examines, famille_metier')
     .in('company_id', companyIds)
 
   // 4. Toutes les oppositions pertinentes (entreprise, personne ou moyen)
@@ -158,7 +164,7 @@ export async function fetchMaJourneeData(
     .from('observations_entreprise')
     .select('company_id, attribut, valeur')
     .in('company_id', companyIds)
-    .in('attribut', ['fait_specifique', 'site_statut', 'site_crawl_statut', 'site_cta', 'site_formulaire'])
+    .in('attribut', ['fait_specifique', 'site_statut', 'site_crawl_statut', 'site_cta', 'site_formulaire', 'email_recherche_statut'])
 
   // ── Indexation en mémoire (pas de nouvelle requête par entreprise) ──
   const companyById = new Map((companies ?? []).map((c: any) => [c.id, c]))
@@ -167,8 +173,12 @@ export async function fetchMaJourneeData(
   const etabsTries = [...(etabs ?? [])].sort((a: any, b: any) => Number(b.siege === true) - Number(a.siege === true))
   const villeByCompany = new Map<string, string>()
   const coordByCompany = new Map<string, { lat: number; lng: number }>()
+  const adresseSireneByCompany = new Map<string, { adresse: string | null; codePostal: string | null; ville: string | null }>()
   for (const e of etabsTries) {
     if (e.ville && !villeByCompany.has(e.company_id)) villeByCompany.set(e.company_id, e.ville)
+    if (!adresseSireneByCompany.has(e.company_id)) {
+      adresseSireneByCompany.set(e.company_id, { adresse: e.adresse ?? null, codePostal: e.code_postal ?? null, ville: e.ville ?? null })
+    }
     if (e.latitude != null && e.longitude != null && !coordByCompany.has(e.company_id)) {
       coordByCompany.set(e.company_id, { lat: Number(e.latitude), lng: Number(e.longitude) })
     }
@@ -179,9 +189,16 @@ export async function fetchMaJourneeData(
     arr.push(row)
     contactsEntrepriseByCompany.set(row.company_id, arr)
   }
-  const enrichByCompany = new Map<string, { siteWeb: string | null; email: string | null }>()
+  const enrichByCompany = new Map<string, { siteWeb: string | null; email: string | null; googleNom: string | null; googleAdresse: string | null; familleLot: string | null }>()
   for (const er of enrichissements ?? []) {
-    const cur = enrichByCompany.get(er.company_id) ?? { siteWeb: null, email: null }
+    const cur = enrichByCompany.get(er.company_id) ?? { siteWeb: null, email: null, googleNom: null, googleAdresse: null, familleLot: null }
+    // INSIGHT V1 — fiche Google rapprochée (placeId) : lecture seule de l'enrichissement existant
+    if (!cur.googleNom && er.place_id) {
+      const fiche = ficheGoogleRapprochee(er.place_id, er.candidats_examines)
+      cur.googleNom = fiche.nom
+      cur.googleAdresse = fiche.adresse
+    }
+    if (!cur.familleLot && er.famille_metier) cur.familleLot = er.famille_metier
     if (!cur.siteWeb && er.site_web && String(er.site_web).trim()) cur.siteWeb = String(er.site_web).trim()
     if (!cur.email && er.email && String(er.email).trim()) cur.email = String(er.email).trim()
     enrichByCompany.set(er.company_id, cur)
@@ -214,10 +231,18 @@ export async function fetchMaJourneeData(
     }
   }
 
+  // INSIGHT V1 — niveau de confiance des moyens de contact (email exploitable = CONFIRME/PROBABLE)
+  const niveauParMoyen = new Map<string, string>()
+  for (const row of [...(pmc ?? []), ...(pmcEntreprise ?? [])] as any[]) {
+    if (row.niveau_confiance === 'CONFIRME' || row.niveau_confiance === 'PROBABLE') niveauParMoyen.set(row.moyen_contact_id, row.niveau_confiance)
+  }
+  const statutEmailByCompany = new Map<string, string>()
+
   const faitsByCompany = new Map<string, FaitCommercial[]>()
   const siteStatutByCompany = new Map<string, string>()
   const siteCrawlByCompany = new Map<string, { crawlStatut?: string; cta?: string; formulaire?: string }>()
   for (const obs of observations ?? []) {
+    if (obs.attribut === 'email_recherche_statut' && obs.valeur) statutEmailByCompany.set(obs.company_id, obs.valeur)
     if (obs.attribut === 'site_statut') {
       siteStatutByCompany.set(obs.company_id, obs.valeur)
     }
@@ -332,6 +357,27 @@ export async function fetchMaJourneeData(
     const enrich = enrichByCompany.get(companyId)
     const emailBloque = oppEntrepriseGlobale.has(companyId) || (oppCanalEntreprise.get(companyId)?.has('email') ?? false)
 
+    // INSIGHT V1 + qualité de contact : calcul pur sur données existantes, rien n'est écrit.
+    const emailExploitable = contactMethods.some((c) => c.type === 'email' && c.allowed && niveauParMoyen.has(c.contactMethodId))
+    const adresseSirene = adresseSireneByCompany.get(companyId)
+    const statutEmailV2 = statutEmailByCompany.get(companyId) ?? null
+    const insight = calculerInsightV1({
+      raisonSociale: company.name,
+      enseigne: company.trade_name ?? null,
+      naf: company.naf ?? null,
+      trancheEffectif: company.employee_band ?? null,
+      adresseSirene: adresseSirene?.adresse ?? null,
+      codePostalSirene: adresseSirene?.codePostal ?? null,
+      communeSirene: adresseSirene?.ville ?? company.city ?? null,
+      familleLot: enrich?.familleLot ?? null,
+      googleNom: enrich?.googleNom ?? null,
+      googleAdresse: enrich?.googleAdresse ?? null,
+      siteWeb: enrich?.siteWeb ?? null,
+      statutEmailV2,
+      joignableParEmail: emailExploitable,
+    })
+    const qualiteContact = calculerQualiteContact(!!telephoneAffichable, emailExploitable)
+
     results.push({
       companyId,
       companyName: company.name,
@@ -353,6 +399,9 @@ export async function fetchMaJourneeData(
       besoinIdentifie: persisted.besoinIdentifie,
       siteWeb: enrich?.siteWeb ?? null,
       emailEnrichissement: !emailBloque && !emailAffichable ? enrich?.email ?? null : null,
+      insight,
+      qualiteContact,
+      statutEmailV2,
     })
   }
 

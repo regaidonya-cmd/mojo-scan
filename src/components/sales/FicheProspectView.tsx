@@ -4,6 +4,8 @@ import type { ProspectViewModel, HistoriqueEvent } from '@/lib/priority/fetch-re
 import { ResultatAppelForm } from './ResultatAppelForm'
 import { formatDateHeureFr, formatDateFr } from '@/lib/priority/format-date-fr'
 import { getStatutBadgeLabel, getRaisonAffichee, peutEnregistrerResultat } from '@/lib/priority/fiche-presentation'
+import { LIBELLES_STATUT_EMAIL } from '@/lib/insight/insight-v1'
+import { LIBELLES_NIVEAU, LIBELLES_SOURCE, TEXTE_CONTEXTE_SEULEMENT, TEXTE_AUCUN_INSIGHT } from '@/lib/insight/referentiels'
 
 const PIPELINE_LABEL: Record<string, string> = {
   A_CONTACTER: 'À contacter', EN_DISCUSSION: 'En discussion', RDV: 'RDV',
@@ -29,6 +31,10 @@ export function FicheProspectView({
 }) {
   const { engine, business, companyName, siren, naf, ville, distanceKm, interlocuteur, pipelineStage, telephoneAffichable, emailAffichable } = vm
   const contactEntrepriseSeul = !interlocuteur && engine.selectedContact?.nominatif === false
+  // INSIGHT V1 — fiche SDR uniquement (ADMIN inchangé). « Pourquoi maintenant ? »
+  // du moteur (signal réel P0/P1) et les statuts STOP/TERMINE gardent la priorité.
+  const insight = modeSdr ? vm.insight ?? null : null
+  const insightPourquoi = !!insight && !['STOP', 'TERMINE', 'P0', 'P1'].includes(engine.priorite)
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: '28px 20px 60px', fontFamily: DS.fontBody }}>
@@ -59,6 +65,7 @@ export function FicheProspectView({
       {modeSdr && (
         <Section title="Contexte">
           <Row label="Activité (NAF)" value={naf ?? '—'} />
+          {insight && <Row label="Famille métier" value={insight.familleLibelle} />}
           <Row label="Commune" value={ville ?? '—'} />
           <Row label="Téléphone" value={telephoneAffichable ?? '—'} />
           <Row label="Site" value={vm.siteWeb ?? '—'} />
@@ -68,29 +75,62 @@ export function FicheProspectView({
           )}
           <Row label="Température" value={vm.persistedTemperature ?? '—'} />
           <Row label="Besoin identifié" value={vm.besoinIdentifie ?? '—'} />
+          {vm.qualiteContact && (
+            <Row
+              label="Qualité contact"
+              value={vm.qualiteContact === 'A_COMPLET'
+                ? 'A_COMPLET (téléphone + email)'
+                : `B_APPELABLE (téléphone)${vm.statutEmailV2 && LIBELLES_STATUT_EMAIL[vm.statutEmailV2] ? ` — ${LIBELLES_STATUT_EMAIL[vm.statutEmailV2]}` : ''}`}
+            />
+          )}
         </Section>
       )}
 
-      {/* Contactabilité / Connaissance / Armement */}
-      <Section title="Diagnostic commercial">
-        <Row label="Contactabilité" value={business.contactabilite} />
-        <Row label="Connaissance" value={business.connaissance} />
-        <Row label="Armement" value={business.armement} />
-      </Section>
+      {/* Contactabilité / Connaissance / Armement — masqué en SDR (INSIGHT V1 le remplace) */}
+      {!insight && (
+        <Section title="Diagnostic commercial">
+          <Row label="Contactabilité" value={business.contactabilite} />
+          <Row label="Connaissance" value={business.connaissance} />
+          <Row label="Armement" value={business.armement} />
+        </Section>
+      )}
 
       {/* Pourquoi maintenant / ce prospect — wording conditionné à la priorité réelle.
           P0.7E : pour STOP/TERMINE, texte de présentation dédié — ne modifie
           jamais business.raisonMaintenant (règle métier inchangée), seul
           l'affichage est adapté ici. */}
-      <Section title={engine.priorite === 'STOP' || engine.priorite === 'TERMINE' ? 'Statut' : business.raisonLabel}>
+      <Section title={insightPourquoi ? 'Pourquoi ce prospect ?' : engine.priorite === 'STOP' || engine.priorite === 'TERMINE' ? 'Statut' : business.raisonLabel}>
         <p style={{ fontSize: 14, color: DS.text, lineHeight: 1.5, margin: 0 }}>
-          {getRaisonAffichee(engine.priorite, business.raisonMaintenant)}
+          {insightPourquoi ? insight!.pourquoi : getRaisonAffichee(engine.priorite, business.raisonMaintenant)}
         </p>
       </Section>
 
       {/* FAIT OBSERVÉ — ce que nous savons réellement, sourcé */}
       <Section title="Fait observé">
-        {business.faitPrincipal && business.faitPrincipal.sensibilite === 'UTILISABLE_DANS_ACCROCHE' ? (
+        {insight ? (
+          <>
+            <div style={{ marginBottom: 10 }}>
+              <Chip label={LIBELLES_NIVEAU[insight.niveau]} filled={insight.niveau === 'INSIGHT_EXPLOITABLE'} muted={insight.niveau === 'AUCUN_INSIGHT_FIABLE'} />
+            </div>
+            {insight.niveau === 'AUCUN_INSIGHT_FIABLE' && (
+              <div style={{ background: DS.off, border: `1px solid ${DS.border2}`, borderRadius: DS.rMd, padding: 10, marginBottom: 10, fontSize: 13, color: DS.text }}>
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>{TEXTE_AUCUN_INSIGHT}</div>
+                {insight.alertes.map((a, i) => <div key={i} style={{ color: DS.muted }}>⚠ {a}</div>)}
+              </div>
+            )}
+            {insight.faits.map((f, i) => (
+              <p key={i} style={{ fontSize: 13.5, color: DS.text, margin: '0 0 6px', lineHeight: 1.5 }}>
+                {f.texte} <span style={{ color: DS.muted, fontSize: 12 }}>— Source : {LIBELLES_SOURCE[f.source]}</span>
+              </p>
+            ))}
+            {insight.niveau === 'CONTEXTE_SEULEMENT' && (
+              <p style={{ fontSize: 13, color: DS.muted, fontStyle: 'italic', margin: '6px 0 0' }}>{TEXTE_CONTEXTE_SEULEMENT}</p>
+            )}
+            {insight.niveau !== 'AUCUN_INSIGHT_FIABLE' && insight.alertes.map((a, i) => (
+              <p key={i} style={{ fontSize: 12.5, color: DS.muted, margin: '6px 0 0' }}>⚠ {a}</p>
+            ))}
+          </>
+        ) : business.faitPrincipal && business.faitPrincipal.sensibilite === 'UTILISABLE_DANS_ACCROCHE' ? (
           <>
             <p style={{ fontSize: 14, color: DS.text, margin: '0 0 8px', lineHeight: 1.5 }}>
               {business.faitPrincipal.texteAffichable || '(sans texte spécifique)'}
@@ -106,9 +146,16 @@ export function FicheProspectView({
 
       {/* ANGLE D'APPROCHE SUGGÉRÉ — toujours présenté comme suggestion, jamais un fait */}
       <Section title="Angle d'approche suggéré">
-        <p style={{ fontSize: 13.5, color: DS.text, lineHeight: 1.5, margin: 0, fontStyle: business.armement === 'PRET' ? 'normal' : 'italic' }}>
-          {business.angleApproche}
-        </p>
+        {insight ? (
+          <>
+            <p style={{ fontSize: 14, color: DS.text, lineHeight: 1.5, margin: 0, fontWeight: 600 }}>{insight.angle}</p>
+            <p style={{ fontSize: 12, color: DS.muted, margin: '6px 0 0' }}>{insight.mention}</p>
+          </>
+        ) : (
+          <p style={{ fontSize: 13.5, color: DS.text, lineHeight: 1.5, margin: 0, fontStyle: business.armement === 'PRET' ? 'normal' : 'italic' }}>
+            {business.angleApproche}
+          </p>
+        )}
       </Section>
 
       {/* Interlocuteur / contact */}
