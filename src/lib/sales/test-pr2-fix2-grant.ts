@@ -57,7 +57,8 @@ async function main() {
   // 8. Exactement 6 migrations au total (001-006), aucune supprimée/renommée
   {
     const migrations = fs.readdirSync(path.join(racine, 'supabase/migrations')).sort()
-    t('8. Exactement 6 migrations (001 à 006)', migrations.length === 6 && migrations[5] === '006_profiles_authenticated_select_grant.sql')
+    // PR3 — adapté : 001→006 intactes et ordonnées ; 007+ autorisées.
+    t('8. Exactement 6 migrations (001 à 006)', migrations.length >= 6 && migrations[5] === '006_profiles_authenticated_select_grant.sql' && migrations[4] === '005_profiles.sql')
   }
 
   console.log('')

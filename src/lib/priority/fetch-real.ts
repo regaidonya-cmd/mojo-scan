@@ -11,6 +11,8 @@ import { evaluateProspect } from './engine'
 import { evaluateBusinessModel, classifySiteStatutOnly, buildFaitCommercial, FaitCommercial } from './business-model'
 import type { ProspectInput, ContactMethod, CommercialPriorityResult } from './types'
 import type { BusinessModelResult } from './business-model'
+import { construireContactMethods } from './contacts-prospect'
+import type { LigneContact } from './contacts-prospect'
 
 // Villeneuve-Saint-Georges — centre de la zone de collecte P0.2B (cf run-66-v2.ts)
 const VSG = { lat: 48.7377, lng: 2.4453 }
@@ -41,6 +43,13 @@ export interface ProspectViewModel {
   persistedNextActionType: string | null
   persistedNextActionDueAt: string | null
   persistedNextActionReason: string | null
+  // PR3 — portefeuille SDR (lecture pure, jamais recalculé)
+  // (optionnels : rétrocompatibles avec les view-models existants/tests)
+  persistedTemperature?: string | null
+  assignedTo?: string | null
+  besoinIdentifie?: string | null
+  siteWeb?: string | null // site déjà obtenu à l'enrichissement (aucun nouveau chantier)
+  emailEnrichissement?: string | null // email déjà obtenu à l'enrichissement, non qualifié ; jamais si opposition entreprise/canal email
 }
 
 // P0.6C-FIX.1 : la sensibilité est désormais déterminée PAR FAIT
@@ -56,15 +65,30 @@ function supabaseServer() {
   })
 }
 
-export async function fetchMaJourneeData(): Promise<ProspectViewModel[]> {
-  const supabase = supabaseServer()
+export interface OptionsChargement {
+  /** PR3 — filtre de SÉCURITÉ appliqué DANS la requête prospects_sales
+   * (jamais un filtrage en mémoire après chargement du portefeuille complet). */
+  assignedTo?: string
+  /** PR3 — lecture ciblée (fiche) : uniquement ces company_id. */
+  companyIds?: string[]
+}
+
+export async function fetchMaJourneeData(
+  options: OptionsChargement = {},
+  client: any = null // injectable pour les tests ; service_role par défaut
+): Promise<ProspectViewModel[]> {
+  const supabase: ReturnType<typeof supabaseServer> = client ?? supabaseServer()
   const nowIso = new Date().toISOString()
 
-  // 1. Les 66 prospects + entreprise + qualification
-  const { data: prospects } = await supabase
+  // 1. Prospects (tous pour ADMIN, portefeuille pour SDR, ou ciblés) + entreprise + qualification
+  let requeteProspects = supabase
     .from('prospects_sales')
-    .select('company_id, pipeline_stage, temperature, next_action_type, next_action_due_at, next_action_reason')
+    .select('company_id, pipeline_stage, temperature, next_action_type, next_action_due_at, next_action_reason, assigned_to, besoin_identifie')
+  if (options.assignedTo !== undefined) requeteProspects = requeteProspects.eq('assigned_to', options.assignedTo)
+  if (options.companyIds !== undefined) requeteProspects = requeteProspects.in('company_id', options.companyIds)
+  const { data: prospects } = await requeteProspects
   const companyIds = (prospects ?? []).map((p: any) => p.company_id)
+  if (companyIds.length === 0) return []
   const pipelineByCompany = new Map((prospects ?? []).map((p: any) => [p.company_id, p.pipeline_stage]))
   const persistedStateByCompany = new Map(
     (prospects ?? []).map((p: any) => [
@@ -74,13 +98,15 @@ export async function fetchMaJourneeData(): Promise<ProspectViewModel[]> {
         nextActionType: p.next_action_type ?? null,
         nextActionDueAt: p.next_action_due_at ?? null,
         nextActionReason: p.next_action_reason ?? null,
+        assignedTo: p.assigned_to ?? null,
+        besoinIdentifie: p.besoin_identifie ?? null,
       },
     ])
   )
 
   const { data: companies } = await supabase
     .from('companies')
-    .select('id, name, siren, naf')
+    .select('id, name, siren, naf, city')
     .in('id', companyIds)
 
   const { data: quals } = await supabase
@@ -88,11 +114,12 @@ export async function fetchMaJourneeData(): Promise<ProspectViewModel[]> {
     .select('company_id, fit_cible, preuve_metier')
     .in('company_id', companyIds)
 
+  // PR3 — tous les établissements, siège prioritaire : repli sur un
+  // établissement non-siège quand aucun siège n'est connu (commune).
   const { data: etabs } = await supabase
     .from('etablissements')
-    .select('company_id, ville, latitude, longitude')
+    .select('company_id, ville, latitude, longitude, siege')
     .in('company_id', companyIds)
-    .eq('siege', true)
 
   // 2. Toutes les personnes de ces entreprises
   const { data: personnes } = await supabase
@@ -106,6 +133,19 @@ export async function fetchMaJourneeData(): Promise<ProspectViewModel[]> {
     .from('personnes_moyens_contact')
     .select('id, personne_id, moyen_contact_id, moyens_contact(type, valeur_normalisee)')
     .in('personne_id', personneIds.length ? personneIds : ['00000000-0000-0000-0000-000000000000'])
+
+  // 3b. PR3 — moyens de contact rattachés directement à l'ENTREPRISE
+  // (personne_id NULL — ex. téléphone standard du portefeuille SDR).
+  const { data: pmcEntreprise } = await supabase
+    .from('personnes_moyens_contact')
+    .select('id, company_id, moyen_contact_id, moyens_contact(type, valeur_normalisee)')
+    .in('company_id', companyIds)
+
+  // 3c. PR3 — site / email déjà obtenus à l'enrichissement (lecture seule).
+  const { data: enrichissements } = await supabase
+    .from('enrichissement_resultats')
+    .select('company_id, site_web, email')
+    .in('company_id', companyIds)
 
   // 4. Toutes les oppositions pertinentes (entreprise, personne ou moyen)
   const { data: oppositions } = await supabase
@@ -123,12 +163,29 @@ export async function fetchMaJourneeData(): Promise<ProspectViewModel[]> {
   // ── Indexation en mémoire (pas de nouvelle requête par entreprise) ──
   const companyById = new Map((companies ?? []).map((c: any) => [c.id, c]))
   const qualByCompany = new Map((quals ?? []).map((q: any) => [q.company_id, q]))
-  const villeByCompany = new Map((etabs ?? []).map((e: any) => [e.company_id, e.ville]))
-  const coordByCompany = new Map(
-    (etabs ?? [])
-      .filter((e: any) => e.latitude != null && e.longitude != null)
-      .map((e: any) => [e.company_id, { lat: Number(e.latitude), lng: Number(e.longitude) }])
-  )
+  // Siège d'abord (comportement historique), puis repli non-siège.
+  const etabsTries = [...(etabs ?? [])].sort((a: any, b: any) => Number(b.siege === true) - Number(a.siege === true))
+  const villeByCompany = new Map<string, string>()
+  const coordByCompany = new Map<string, { lat: number; lng: number }>()
+  for (const e of etabsTries) {
+    if (e.ville && !villeByCompany.has(e.company_id)) villeByCompany.set(e.company_id, e.ville)
+    if (e.latitude != null && e.longitude != null && !coordByCompany.has(e.company_id)) {
+      coordByCompany.set(e.company_id, { lat: Number(e.latitude), lng: Number(e.longitude) })
+    }
+  }
+  const contactsEntrepriseByCompany = new Map<string, LigneContact[]>()
+  for (const row of pmcEntreprise ?? []) {
+    const arr = contactsEntrepriseByCompany.get(row.company_id) ?? []
+    arr.push(row)
+    contactsEntrepriseByCompany.set(row.company_id, arr)
+  }
+  const enrichByCompany = new Map<string, { siteWeb: string | null; email: string | null }>()
+  for (const er of enrichissements ?? []) {
+    const cur = enrichByCompany.get(er.company_id) ?? { siteWeb: null, email: null }
+    if (!cur.siteWeb && er.site_web && String(er.site_web).trim()) cur.siteWeb = String(er.site_web).trim()
+    if (!cur.email && er.email && String(er.email).trim()) cur.email = String(er.email).trim()
+    enrichByCompany.set(er.company_id, cur)
+  }
   const personnesByCompany = new Map<string, any[]>()
   for (const p of personnes ?? []) {
     const arr = personnesByCompany.get(p.company_id) ?? []
@@ -186,38 +243,20 @@ export async function fetchMaJourneeData(): Promise<ProspectViewModel[]> {
     const qual = qualByCompany.get(companyId)
     const companyPersonnes = personnesByCompany.get(companyId) ?? []
 
-    const entrepriseOpposee = oppEntrepriseGlobale.has(companyId)
-    const contactMethods: ContactMethod[] = []
-    for (const p of companyPersonnes) {
-      const personneOpposee = oppPersonneGlobale.has(p.id)
-      const contacts = contactsByPersonne.get(p.id) ?? []
-      const canauxBloquesEntreprise = oppCanalEntreprise.get(companyId) ?? new Set()
-      for (const c of contacts) {
-        const type = c.moyens_contact?.type
-        const value = c.moyens_contact?.valeur_normalisee
-        if (!type || !value) continue
-        const moyenOppose = oppMoyen.has(c.moyen_contact_id)
-        const canalBloque = canauxBloquesEntreprise.has(type)
-        // P0.7D-FIX.11 — Une opposition ENTREPRISE domine toutes les
-        // autorisations de contact, y compris au niveau de chaque
-        // ContactMethod individuel — conséquence CALCULÉE, aucune nouvelle
-        // ligne d'opposition créée (la DB continue de ne contenir que
-        // l'opposition ENTREPRISE elle-même, company_id seul).
-        const allowed = !entrepriseOpposee && !personneOpposee && !moyenOppose && !canalBloque
-        const blockedScope = entrepriseOpposee ? 'ENTREPRISE' : personneOpposee ? 'PERSONNE' : (moyenOppose || canalBloque) ? 'MOYEN' : undefined
-        contactMethods.push({
-          contactMethodId: c.moyen_contact_id,
-          type,
-          value,
-          personneId: p.id,
-          personneNom: p.nom,
-          personnePrenom: p.prenom,
-          nominatif: true,
-          allowed,
-          blockedScope,
-        })
-      }
-    }
+    // PR3 — construction pure partagée (contacts PERSONNE inchangés +
+    // contacts ENTREPRISE non nominatifs), oppositions appliquées à l'identique.
+    const contactMethods: ContactMethod[] = construireContactMethods({
+      companyId,
+      personnes: companyPersonnes,
+      contactsParPersonne: contactsByPersonne,
+      contactsEntreprise: contactsEntrepriseByCompany.get(companyId) ?? [],
+      oppositions: {
+        entrepriseGlobale: oppEntrepriseGlobale,
+        personneGlobale: oppPersonneGlobale,
+        moyen: oppMoyen,
+        canalEntreprise: oppCanalEntreprise,
+      },
+    })
 
     const siteStatut = siteStatutByCompany.get(companyId)
     const faits = faitsByCompany.get(companyId) ?? []
@@ -237,6 +276,7 @@ export async function fetchMaJourneeData(): Promise<ProspectViewModel[]> {
 
     const persisted = persistedStateByCompany.get(companyId) ?? {
       temperature: null, nextActionType: null, nextActionDueAt: null, nextActionReason: null,
+      assignedTo: null, besoinIdentifie: null,
     }
 
     const input: ProspectInput = {
@@ -267,7 +307,12 @@ export async function fetchMaJourneeData(): Promise<ProspectViewModel[]> {
     const hasVerifiedSiteContent = siteCrawlByCompany.get(companyId)?.crawlStatut === 'CRAWL_REUSSI'
     const business = evaluateBusinessModel(input, engineResult, faits, hasVerifiedSiteContent)
 
-    const interlocuteurContact = business.contactabilite === 'BONNE' ? engineResult.selectedContact : null
+    // PR3 — un contact entreprise non nominatif (standard) n'est JAMAIS
+    // présenté comme un interlocuteur : aucun nom inventé.
+    const interlocuteurContact =
+      business.contactabilite === 'BONNE' && engineResult.selectedContact?.nominatif !== false
+        ? engineResult.selectedContact
+        : null
     const interlocuteur = interlocuteurContact
       ? {
           nom: contactMethods.find((c) => c.contactMethodId === interlocuteurContact.contactMethodId)?.personneNom ?? '',
@@ -284,6 +329,8 @@ export async function fetchMaJourneeData(): Promise<ProspectViewModel[]> {
     // Ne jamais afficher une valeur opposée comme CTA commercial.
     const telephoneAffichable = contactMethods.find((c) => c.type === 'telephone' && c.allowed)?.value ?? null
     const emailAffichable = contactMethods.find((c) => c.type === 'email' && c.allowed)?.value ?? null
+    const enrich = enrichByCompany.get(companyId)
+    const emailBloque = oppEntrepriseGlobale.has(companyId) || (oppCanalEntreprise.get(companyId)?.has('email') ?? false)
 
     results.push({
       companyId,
@@ -291,7 +338,7 @@ export async function fetchMaJourneeData(): Promise<ProspectViewModel[]> {
       siren: company.siren,
       naf: company.naf ?? null,
       pipelineStage: pipelineByCompany.get(companyId) ?? 'A_CONTACTER',
-      ville: villeByCompany.get(companyId) ?? null,
+      ville: villeByCompany.get(companyId) ?? company.city ?? null,
       distanceKm,
       engine: engineResult,
       business,
@@ -301,17 +348,21 @@ export async function fetchMaJourneeData(): Promise<ProspectViewModel[]> {
       persistedNextActionType: persisted.nextActionType,
       persistedNextActionDueAt: persisted.nextActionDueAt,
       persistedNextActionReason: persisted.nextActionReason,
+      persistedTemperature: persisted.temperature,
+      assignedTo: persisted.assignedTo,
+      besoinIdentifie: persisted.besoinIdentifie,
+      siteWeb: enrich?.siteWeb ?? null,
+      emailEnrichissement: !emailBloque && !emailAffichable ? enrich?.email ?? null : null,
     })
   }
 
   return results
 }
 
-export async function fetchSingleProspect(companyId: string): Promise<ProspectViewModel | null> {
-  // Pilote (66 lignes) : simplicité assumée, on réutilise le batch complet.
-  // À revoir avant scale (requête ciblée par company_id) — cf. limites P0.6B.
-  const all = await fetchMaJourneeData()
-  return all.find((v) => v.companyId === companyId) ?? null
+export async function fetchSingleProspect(companyId: string, client: any = null): Promise<ProspectViewModel | null> {
+  // PR3 — lecture CIBLÉE par company_id (plus de chargement du portefeuille complet).
+  const ciblees = await fetchMaJourneeData({ companyIds: [companyId] }, client)
+  return ciblees.find((v) => v.companyId === companyId) ?? null
 }
 
 export interface HistoriqueEvent {
@@ -332,7 +383,7 @@ export async function fetchHistorique(companyId: string): Promise<HistoriqueEven
   const supabase = supabaseServer()
   const { data } = await supabase
     .from('activites')
-    .select('id, date_evenement, type, description')
+    .select('id, date_evenement, type, resultat, description')
     .eq('company_id', companyId)
     .order('date_evenement', { ascending: false })
 
@@ -340,7 +391,7 @@ export async function fetchHistorique(companyId: string): Promise<HistoriqueEven
     id: r.id,
     dateEvenement: r.date_evenement,
     type: r.type,
-    resultat: r.resultat ?? null, // colonne absente tant que la migration P0.7 n'est pas appliquée -> toujours null
+    resultat: r.resultat ?? null, // PR3 — colonne lue (présente en base)
     description: r.description,
   }))
 }

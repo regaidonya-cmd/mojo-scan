@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { DS } from '@/lib/ds/tokens'
 import { computeConsequence, RESULTAT_LABEL, type ResultatAppel, type OppositionScope } from '@/lib/priority/activite-consequence'
 import { formatDateHeureFr } from '@/lib/priority/format-date-fr'
@@ -41,12 +42,19 @@ function localInputToIso(v: string): string | undefined {
 }
 
 export function ResultatAppelForm({
-  companyId, personneId, moyenContactId,
+  companyId, personneId, moyenContactId, endpoint, modeSdr = false,
 }: {
   companyId: string; personneId: string | null; moyenContactId: string | null
+  // PR3 — URL d'enregistrement (défaut : route ADMIN existante, inchangée)
+  endpoint?: string
+  // PR3 — champs Notes / Besoin identifié + rafraîchissement de la fiche
+  modeSdr?: boolean
 }) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [idempotencyKey] = useState(() => genUuid())
+  const [idempotencyKey, setIdempotencyKey] = useState(() => genUuid())
+  const [notes, setNotes] = useState('')
+  const [besoin, setBesoin] = useState('')
   const [resultat, setResultat] = useState<ResultatAppel | null>(null)
   const [dateRappel, setDateRappel] = useState('')
   const [dateRdv, setDateRdv] = useState('')
@@ -111,7 +119,7 @@ export function ResultatAppelForm({
     setSubmitting(true)
     setResult(null)
     try {
-      const res = await fetch(`/api/admin/prospects/${companyId}/activite`, {
+      const res = await fetch(endpoint ?? `/api/admin/prospects/${companyId}/activite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -123,13 +131,24 @@ export function ResultatAppelForm({
           dateRdvSaisie: needsDateRdv ? localInputToIso(dateRdv) : undefined,
           dateProchaineActionSaisie: needsDateProchaineAction ? localInputToIso(dateProchaineAction) : undefined,
           oppositionScope: needsOppositionScope ? oppositionScope : undefined,
+          ...(modeSdr ? { notes, besoinIdentifie: besoin } : {}),
         }),
       })
       const data = await res.json()
       if (!res.ok) {
         setResult({ ok: false, message: data.error ?? 'Erreur inconnue' })
       } else {
-        setResult({ ok: true, message: 'Résultat enregistré.' })
+        setResult({ ok: true, message: data?.result?.deja_existant ? 'Déjà enregistré (aucun doublon créé).' : 'Résultat enregistré.' })
+        if (modeSdr) {
+          // Nouvel appel = nouvelle clé : la clé précédente reste idempotente
+          // (un double clic/rejeu ne crée jamais de doublon), la suivante
+          // correspond à une NOUVELLE activité. Fiche rechargée côté serveur.
+          setIdempotencyKey(genUuid())
+          setResultat(null)
+          setNotes('')
+          setBesoin('')
+          router.refresh()
+        }
       }
     } catch (e: any) {
       setResult({ ok: false, message: e.message })
@@ -195,6 +214,23 @@ export function ResultatAppelForm({
             Ne plus contacter cette entreprise
           </label>
         </div>
+      )}
+
+      {modeSdr && (
+        <>
+          <div style={{ marginBottom: 10 }}>
+            <label style={labelStyle}>Notes d'appel</label>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={4000} rows={3}
+              placeholder="Ce qui a été dit, contexte utile pour le prochain échange…"
+              style={{ ...inputStyle, width: '100%', boxSizing: 'border-box' as const, fontFamily: 'inherit' }} />
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <label style={labelStyle}>Besoin identifié (uniquement s'il a été exprimé)</label>
+            <textarea value={besoin} onChange={(e) => setBesoin(e.target.value)} maxLength={2000} rows={2}
+              placeholder="Laisser vide si aucun besoin n'a été exprimé — ne jamais supposer"
+              style={{ ...inputStyle, width: '100%', boxSizing: 'border-box' as const, fontFamily: 'inherit' }} />
+          </div>
+        </>
       )}
 
       {resultat && (
