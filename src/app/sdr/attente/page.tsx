@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { recupererProfilCourant, estSdrActif, estAdminActif } from '@/lib/sales/auth-session'
+import { compterPortefeuille } from '@/lib/sales/acces-sdr'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,6 +10,9 @@ export default async function SdrAttentePage() {
   if (!profil) redirect('/connexion')
   if (estAdminActif(profil)) redirect('/admin') // un admin n'atterrit jamais sur la page d'attente
   if (!estSdrActif(profil)) redirect('/connexion?error=inactif')
+  // PR3 — un SDR qui a un portefeuille va directement sur "Mes prospects" ;
+  // cette page reste le fallback quand aucun prospect n'est affecté.
+  if ((await compterPortefeuille(profil!.userId)) > 0) redirect('/sdr/prospects')
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAF8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif' }}>

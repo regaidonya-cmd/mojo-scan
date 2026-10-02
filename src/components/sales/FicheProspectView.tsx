@@ -17,12 +17,22 @@ const NBA_LABEL: Record<string, string> = {
   STOP: 'Aucune action possible',
 }
 
-export function FicheProspectView({ vm, historique }: { vm: ProspectViewModel; historique: HistoriqueEvent[] }) {
+export function FicheProspectView({
+  vm, historique, retourHref = '/admin/prospects', endpointActivite, modeSdr = false,
+}: {
+  vm: ProspectViewModel
+  historique: HistoriqueEvent[]
+  // PR3 — réutilisation SDR sans dupliquer la fiche (défauts = ADMIN inchangé)
+  retourHref?: string
+  endpointActivite?: string
+  modeSdr?: boolean
+}) {
   const { engine, business, companyName, siren, naf, ville, distanceKm, interlocuteur, pipelineStage, telephoneAffichable, emailAffichable } = vm
+  const contactEntrepriseSeul = !interlocuteur && engine.selectedContact?.nominatif === false
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: '28px 20px 60px', fontFamily: DS.fontBody }}>
-      <Link href="/admin/prospects" style={{ fontSize: 13, color: DS.violet, textDecoration: 'none', fontWeight: 700 }}>
+      <Link href={retourHref} style={{ fontSize: 13, color: DS.violet, textDecoration: 'none', fontWeight: 700 }}>
         ← Retour aux prospects
       </Link>
 
@@ -44,6 +54,22 @@ export function FicheProspectView({ vm, historique }: { vm: ProspectViewModel; h
           return <Chip label={badge.label} filled={badge.filled} muted={badge.muted} />
         })()}
       </div>
+
+      {/* PR3 — Contexte d'appel SDR : uniquement des données déjà connues, rien d'inventé */}
+      {modeSdr && (
+        <Section title="Contexte">
+          <Row label="Activité (NAF)" value={naf ?? '—'} />
+          <Row label="Commune" value={ville ?? '—'} />
+          <Row label="Téléphone" value={telephoneAffichable ?? '—'} />
+          <Row label="Site" value={vm.siteWeb ?? '—'} />
+          <Row label="Email" value={emailAffichable ?? vm.emailEnrichissement ?? '—'} />
+          {!emailAffichable && vm.emailEnrichissement && (
+            <p style={{ fontSize: 12, color: DS.muted, margin: '0 0 6px' }}>Email issu de l'enrichissement, non qualifié.</p>
+          )}
+          <Row label="Température" value={vm.persistedTemperature ?? '—'} />
+          <Row label="Besoin identifié" value={vm.besoinIdentifie ?? '—'} />
+        </Section>
+      )}
 
       {/* Contactabilité / Connaissance / Armement */}
       <Section title="Diagnostic commercial">
@@ -94,7 +120,9 @@ export function FicheProspectView({ vm, historique }: { vm: ProspectViewModel; h
           </>
         ) : (
           <p style={{ fontSize: 13.5, color: DS.muted, fontStyle: 'italic', margin: '0 0 8px' }}>
-            {business.contactabilite === 'PARTIELLE'
+            {contactEntrepriseSeul
+              ? "Standard de l'entreprise — aucun interlocuteur nominatif identifié à ce jour."
+              : business.contactabilite === 'PARTIELLE'
               ? 'Plusieurs interlocuteurs possibles — aucun critère objectif ne permet de choisir pour le moment.'
               : business.contactabilite === 'BLOQUEE'
                 ? 'Aucun contact autorisé (opposition).'
@@ -144,6 +172,8 @@ export function FicheProspectView({ vm, historique }: { vm: ProspectViewModel; h
             companyId={vm.companyId}
             personneId={engine.selectedContact?.personneId ?? null}
             moyenContactId={engine.selectedContact?.contactMethodId ?? null}
+            endpoint={endpointActivite}
+            modeSdr={modeSdr}
           />
         )}
       </Section>

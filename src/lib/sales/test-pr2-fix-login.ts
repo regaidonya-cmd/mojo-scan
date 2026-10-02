@@ -50,8 +50,12 @@ async function main() {
 
   // 8. Aucune nouvelle migration créée par ce fix, profiles/RLS non touchées
   {
-    const migrations = fs.readdirSync(path.join(racine, 'supabase/migrations'))
-    t('8. Toujours exactement les migrations attendues (001 à 006 désormais)', migrations.length === 6 && migrations.includes('005_profiles.sql') && migrations.includes('006_profiles_authenticated_select_grant.sql'))
+    // PR3 — adapté : des migrations ULTÉRIEURES (007+) sont légitimes ;
+    // l'invariant protégé reste que 001→006 sont toutes présentes, dans
+    // l'ordre, jamais supprimées ni renommées par ce fix.
+    const migrations = fs.readdirSync(path.join(racine, 'supabase/migrations')).sort()
+    const attendues = ['001_init.sql', '002_mapping_tables.sql', '003_phase5.sql', '004_activites_idempotency_key_unique.sql', '005_profiles.sql', '006_profiles_authenticated_select_grant.sql']
+    t('8. Toujours exactement les migrations attendues (001 à 006 désormais)', attendues.every((m, i) => migrations[i] === m))
   }
 
   console.log('')
