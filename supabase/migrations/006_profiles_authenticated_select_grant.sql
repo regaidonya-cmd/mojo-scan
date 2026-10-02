@@ -1,0 +1,23 @@
+-- ══════════════════════════════════════════════════════════════
+-- MOJO SALES — SDR / PR2 FIX 2 — Autorisation SELECT du profil
+-- authentifié.
+--
+-- CAUSE CORRIGÉE : la migration 005_profiles.sql activait RLS et créait
+-- la policy profiles_select_own, mais n'accordait jamais le privilège
+-- de table GRANT SELECT nécessaire pour que authenticated puisse même
+-- atteindre la table — RLS filtre les LIGNES visibles une fois l'accès
+-- à la table déjà autorisé, il ne remplace jamais le GRANT de base.
+-- Confirmé empiriquement en production : ERROR 42501 "permission denied
+-- for table profiles" avant même l'évaluation de la policy.
+--
+-- Cette migration n'accorde QUE SELECT — jamais INSERT/UPDATE/DELETE,
+-- jamais ALL. La policy profiles_select_own (auth.uid() = user_id)
+-- reste l'unique mécanisme de filtrage par ligne : un utilisateur
+-- authentifié peut désormais effectivement lire, mais uniquement son
+-- propre profil.
+--
+-- Ne modifie ni 005_profiles.sql, ni la table, ni les données, ni la
+-- policy, ni RLS.
+-- ══════════════════════════════════════════════════════════════
+
+GRANT SELECT ON TABLE public.profiles TO authenticated;
