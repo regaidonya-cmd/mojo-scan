@@ -51,7 +51,7 @@ async function main() {
   // 8. Aucune nouvelle migration créée par ce fix, profiles/RLS non touchées
   {
     const migrations = fs.readdirSync(path.join(racine, 'supabase/migrations'))
-    t('8. Toujours exactement les migrations 001-005, aucune nouvelle créée', migrations.length === 5 && migrations.includes('005_profiles.sql'))
+    t('8. Toujours exactement les migrations attendues (001 à 006 désormais)', migrations.length === 6 && migrations.includes('005_profiles.sql') && migrations.includes('006_profiles_authenticated_select_grant.sql'))
   }
 
   console.log('')
