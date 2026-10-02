@@ -51,7 +51,9 @@ async function main() {
     raisonSociale: 'FABIENNE JOIGNANT', enseigne: 'BERNAUD FLEURS A FLEURS', naf: '47.76Z', trancheEffectif: 'NN', familleLot: 'Commerces de proximité',
     googleNom: 'Bernaud Fleurs à Fleurs', googleAdresse: '4 Av. des Fusillés, 94190 Villeneuve-Saint-Georges, France',
   }))
-  t('1g. Enseigne distincte -> INSIGHT_EXPLOITABLE, accroche = nom public', fleurs.niveau === 'INSIGHT_EXPLOITABLE' && fleurs.angle.startsWith("J'ai vu que vous vous présentez comme « Bernaud Fleurs à Fleurs »"))
+  // V1.1 — une enseigne seule est un fait affiché, jamais un insight différenciant.
+  t('1g. V1.1 : enseigne seule -> CONTEXTE_SEULEMENT + question métier, enseigne toujours affichée',
+    fleurs.niveau === 'CONTEXTE_SEULEMENT' && fleurs.angle === FAMILLES.COMMERCE.question && fleurs.faits.some((f) => f.texte === 'Enseigne déclarée : BERNAUD FLEURS A FLEURS'))
   t('1h. Tranche NN jamais affichée', !textes(fleurs).includes('nn') && !fleurs.pourquoi.includes('salarié'))
 
   // ── 2. CONTEXTE_SEULEMENT ──
@@ -89,7 +91,7 @@ async function main() {
     googleNom: 'FONCIA | Agence Immobilière | Achat-Vente | Villeneuve-Saint-Georges | Place Pierre Semard',
     googleAdresse: '12 Pl. Pierre Semard, 94190 Villeneuve-Saint-Georges, France', siteWeb: 'https://fr.foncia.com/agence/1150', joignableParEmail: true,
   }))
-  t('4c. Raison sociale commençant par la marque -> VERIFIEE, intitulé descriptif -> EXPLOITABLE', foncia.identiteGoogle === 'VERIFIEE' && foncia.niveau === 'INSIGHT_EXPLOITABLE')
+  t('4c. Raison sociale commençant par la marque -> VERIFIEE ; « Agence Immobilière » = catégorie -> CONTEXTE (V1.1)', foncia.identiteGoogle === 'VERIFIEE' && foncia.niveau === 'CONTEXTE_SEULEMENT' && foncia.angle === FAMILLES.IMMOBILIER.question)
   t('4d. Structure importante (tranche 42) -> alerte décisionnaire, sans jugement', foncia.alertes.includes('Structure importante : décisionnaire à identifier.') && foncia.pourquoi.includes('décisionnaire à identifier'))
   t('4e. Page d\'enseigne (foncia.com) jamais présentée comme site de l\'entreprise', !foncia.faits.some((f) => f.texte.startsWith('Site web')))
   const domiciliation = verifierIdentiteGoogle({ raisonSociale: 'A.R.D.A.S', enseigne: null, codePostalSirene: '94190', googleNom: "La Table d'Abraham - Traiteur", googleAdresse: '98 Av. de Choisy, 94190 Villeneuve' })
@@ -118,11 +120,62 @@ async function main() {
   t('6. Sans email : « Joignable par téléphone. » sans mention négative', mister.pourquoi.endsWith('Joignable par téléphone.') && !textes(mister).includes('email'))
 
   // ── 7. Site mutualisé / enseigne / réseau ──
-  t('7. Réseau via enseigne : fait réseau Franprix + enseigne', (() => {
+  t('7. Réseau de distribution via enseigne (Franprix) : fait réseau affiché, niveau CONTEXTE (V1.1)', (() => {
     const s = calc(entree({ raisonSociale: 'SENTHURAN', enseigne: 'LE MARCHE FRANPRIX', naf: '47.11C', googleNom: 'Franprix', googleAdresse: ADR_VSG, siteWeb: 'https://www.franprix.fr/magasins/5179' }))
-    return s.niveau === 'INSIGHT_EXPLOITABLE' && s.faits.some((f) => f.texte === 'Réseau / marque mentionné : Franprix') && !s.faits.some((f) => f.texte.startsWith('Site'))
+    // V1.1 — enseigne de distribution : fait affiché, mais CONTEXTE_SEULEMENT
+    return s.niveau === 'CONTEXTE_SEULEMENT' && s.faits.some((f) => f.texte === 'Réseau / marque mentionné : Franprix') && !s.faits.some((f) => f.texte.startsWith('Site'))
   })())
   t('7b. Marque = raison sociale (LAPEYRE) : pas un fait propre -> CONTEXTE', calc(entree({ raisonSociale: 'LAPEYRE', naf: '47.52B', googleNom: 'Lapeyre', googleAdresse: ADR_VSG, siteWeb: 'https://magasins.lapeyre.fr/x' })).niveau === 'CONTEXTE_SEULEMENT')
+
+  // ── V1.1. Fiable ≠ commercialement différenciant ──
+  const v11 = (o: Partial<EntreeInsight>) => calc(entree({ googleAdresse: ADR_VSG, ...o }))
+  const ffc = v11({ raisonSociale: 'FAST FRIED CHICKEN (F.F.C)', naf: '56.10C', trancheEffectif: '02', familleLot: 'Restauration & métiers de bouche',
+    googleNom: 'Fast Fried chicken(Indian)', siteWeb: 'https://fastfriedchickenindian.com/' })
+  t('V11-1. FAST FRIED CHICKEN : plus INSIGHT, CONTEXTE + question Restauration', ffc.niveau === 'CONTEXTE_SEULEMENT' && ffc.angle === FAMILLES.RESTAURATION.question)
+  t('V11-1b. FAST FRIED CHICKEN : faits conservés (activité, fiche Google, site), aucune accroche « Se présente »',
+    ffc.faits.some((f) => f.texte === 'Fiche Google : « Fast Fried chicken(Indian) »') && ffc.faits.some((f) => f.texte === 'Site web : fastfriedchickenindian.com') && !ffc.pourquoi.includes('Se présente'))
+
+  const nonDifferenciants: [string, string, string, string | null, string, keyof typeof FAMILLES][] = [
+    ['enseigne seule (La Villa Nova)', 'LVN', 'La Villa Nova', 'LA VILLA NOVA', '56.10C', 'RESTAURATION'],
+    ['enseigne seule (Ma Couverture)', 'VASILI COJOCARU', 'MA COUVERTURE', 'MA COUVERTURE', '43.91B', 'BATIMENT'],
+    ['catégorie « Épicerie »', 'ANNE', "L' Epicerie D' Anne", null, '47.11B', 'COMMERCE'],
+    ['catégorie « Supermarché »', "FOOD'S CITY", "Food's City Supermarché", null, '47.11B', 'COMMERCE'],
+    ['catégorie + origine « Épicerie congolaise »', 'KELBIEXO', 'Épicerie congolaise "Kelbi Exo"', null, '47.78C', 'COMMERCE'],
+    ['enseigne de distribution (Intermarché)', 'VALORME', 'Intermarché SUPER Villeneuve-Saint-Georges', 'INTERMARCHE', '47.11D', 'COMMERCE'],
+    ['enseigne de distribution (Esso)', 'CERTAS ENERGY FRANCE', 'Esso Express', 'ESSO VALENTON CHURCHILL', '47.30Z', 'COMMERCE'],
+  ]
+  for (const [nom, rs, gNom, ens, naf, famille] of nonDifferenciants) {
+    const i = v11({ raisonSociale: rs, enseigne: ens, naf, googleNom: gNom })
+    t(`V11-2. ${nom} -> CONTEXTE_SEULEMENT + question ${famille}`, i.identiteGoogle === 'VERIFIEE' && i.niveau === 'CONTEXTE_SEULEMENT' && i.angle === FAMILLES[famille].question)
+  }
+
+  const differenciants: [string, string, string, string][] = [
+    ['agrément constructeur (Volkswagen)', 'GARAGE RABES', 'Réparateur agréé Volkswagen & VW Véhicules Utilitaires - Garage Rabès', '45.20A'],
+    ['réseau de service (Bosch Car Service)', 'CARROSSERIE PRESTIGE', 'Carrosserie Prestige - Bosch Car Service', '45.20A'],
+    ['certification (Kacher)', "LA TABLE D'ABRAHAM", "La Table d'Abraham - Traiteur KACHER BETH DIN", '56.21Z'],
+    ['prestation (Serrurerie Cordonnerie)', 'TUNA', 'Serrurerie Cordonnerie Tuna', '47.19B'],
+    ['spécialisation (Échafaudage)', 'M & K', 'M & K Échafaudage', '43.34Z'],
+    ["offre (tous corps d'état)", 'GCM', "GCM, entreprise tous corps d'état", '41.20A'],
+    ['spécialisation (Posturologue)', 'DAVID OLIVEIRA', 'Oliveira David Posturologue Pédicure Podologue', '86.90E'],
+    ['service (Gardes à domicile)', "MULTI'SERVICES A DOMICILE", 'Association de Gardes A Domicile VILLENEUVE - BIEN VIEILLIR IDF', '96.09Z'],
+    ['spécialisation (Carrosserie)', 'GARAGE DU COTEAU', 'Carrosserie Garage du Coteau', '45.20A'],
+    ['service (Hôtel)', 'AU 52', 'Hotel Au 52', '56.10A'],
+  ]
+  for (const [nom, rs, gNom, naf] of differenciants) {
+    const i = v11({ raisonSociale: rs, naf, googleNom: gNom })
+    t(`V11-3. ${nom} -> reste INSIGHT_EXPLOITABLE (accroche + question famille)`,
+      i.niveau === 'INSIGHT_EXPLOITABLE' && i.angle.startsWith("J'ai vu que vous vous présentez comme « ") && i.pourquoi.includes('Se présente publiquement comme'))
+  }
+  t('V11-4. Rabès : accroche inchangée par V1.1 (non-régression)',
+    rabes.niveau === 'INSIGHT_EXPLOITABLE' && rabes.angle.startsWith("J'ai vu que vous vous présentez comme « Réparateur agréé Volkswagen & VW Véhicules Utilitaires »"))
+  t("V11-5. Comité d'établissement : caractéristique de structure, pas une accroche -> CONTEXTE",
+    v11({ raisonSociale: 'CASI PARIS SUD-EST', naf: '56.29B', trancheEffectif: '21', googleNom: 'Comité Établissement Région SNCF Paris Sud-Est' }).niveau === 'CONTEXTE_SEULEMENT')
+  t('V11-6. AUCUN_INSIGHT_FIABLE inchangé (identité douteuse prioritaire, même avec un mot différenciant)',
+    calc(entree({ raisonSociale: 'ACME', naf: '45.20A', googleNom: 'Carrosserie Autre Nom', googleAdresse: '1 rue X, 78370 Plaisir' })).niveau === 'AUCUN_INSIGHT_FIABLE'
+    && bts.niveau === 'AUCUN_INSIGHT_FIABLE' && bazar.niveau === 'AUCUN_INSIGHT_FIABLE')
+  t('V11-7. Alertes conservées en CONTEXTE (structure importante Foncia)', foncia.alertes.includes('Structure importante : décisionnaire à identifier.'))
+  t('V11-8. CONTEXTE : aucune accroche personnalisée, aucun « Se présente publiquement »',
+    tousLesInsights.filter((i) => i.niveau === 'CONTEXTE_SEULEMENT').every((i) => !i.angle.startsWith("J'ai vu") && !i.pourquoi.includes('Se présente publiquement')))
 
   // ── 8. Famille métier ──
   t('8. Famille depuis le lot', determinerFamille('43.22B', 'Bâtiment & artisans') === 'BATIMENT')

@@ -17,8 +17,8 @@
 
 import {
   LIBELLES_NAF, LIBELLES_TRANCHE, TRANCHES_STRUCTURE_IMPORTANTE, FAMILLES, FAMILLE_DEPUIS_LIBELLE_LOT,
-  FAMILLE_DEPUIS_NAF, NATURE_DEPUIS_NAF, MOTS_EXCLUS_IDENTITE, LEXIQUE_ACTIVITE, RESEAUX,
-  DOMAINES_NON_PROPRES, QUESTION_FROIDE_PLAYBOOK, MENTION_SUGGESTION, type CleFamille,
+  FAMILLE_DEPUIS_NAF, NATURE_DEPUIS_NAF, MOTS_EXCLUS_IDENTITE, RESEAUX,
+  DOMAINES_NON_PROPRES, QUESTION_FROIDE_PLAYBOOK, MENTION_SUGGESTION, LEXIQUE_DIFFERENCIANT, RESEAUX_SERVICE, type CleFamille,
 } from './referentiels'
 
 export type NiveauInsight = 'INSIGHT_EXPLOITABLE' | 'CONTEXTE_SEULEMENT' | 'AUCUN_INSIGHT_FIABLE'
@@ -162,11 +162,17 @@ function segmentDescriptif(googleNom: string, motsAjoutes: Set<string>, reseaux:
 function analyseIntituleGoogle(e: EntreeInsight): { descriptif: boolean; reseaux: string[]; segment: string | null } {
   if (!e.googleNom) return { descriptif: false, reseaux: [], segment: null }
   const deja = new Set([...normaliser(e.raisonSociale).split(' '), ...(e.enseigne ? normaliser(e.enseigne).split(' ') : [])])
-  const ajoutes = new Set(normaliser(e.googleNom).split(' ').filter((m) => LEXIQUE_ACTIVITE.has(m) && !deja.has(m)))
+  // V1.1 — seul un mot DIFFÉRENCIANT (spécialisation, prestation, agrément…)
+  // compte ; une simple catégorie métier ne rend jamais l'intitulé différenciant.
+  const ajoutes = new Set(normaliser(e.googleNom).split(' ').filter((m) => LEXIQUE_DIFFERENCIANT.has(m) && !deja.has(m)))
   // Un réseau déjà présent dans la raison sociale n'apporte rien (ex. LAPEYRE).
   const reseaux = reseauxDans(e.googleNom).filter((r) => !` ${normaliser(e.raisonSociale)} `.includes(` ${r} `))
-  const descriptif = ajoutes.size > 0 || reseaux.length > 0
-  return { descriptif, reseaux, segment: descriptif ? segmentDescriptif(e.googleNom, ajoutes, reseaux) : null }
+  // V1.1 — un réseau n'est différenciant que s'il traduit un agrément /
+  // un réseau de service ; une enseigne de distribution reste du contexte
+  // (le fait « Réseau / marque mentionné » reste affiché dans tous les cas).
+  const reseauxService = reseaux.filter((r) => RESEAUX_SERVICE.has(r))
+  const descriptif = ajoutes.size > 0 || reseauxService.length > 0
+  return { descriptif, reseaux, segment: descriptif ? segmentDescriptif(e.googleNom, ajoutes, reseauxService) : null }
 }
 
 // ── Calcul principal ────────────────────────────────────────────
@@ -206,7 +212,9 @@ export function calculerInsightV1(e: EntreeInsight): InsightV1 {
   // Classification
   let niveau: NiveauInsight
   if (identite !== 'VERIFIEE') niveau = 'AUCUN_INSIGHT_FIABLE'
-  else if (ensDistincte || google.descriptif) niveau = 'INSIGHT_EXPLOITABLE'
+  // V1.1 — INSIGHT_EXPLOITABLE = fait vérifié ET commercialement différenciant.
+  // Une enseigne seule reste affichée comme fait, mais ne suffit plus.
+  else if (google.descriptif) niveau = 'INSIGHT_EXPLOITABLE'
   else niveau = 'CONTEXTE_SEULEMENT'
 
   // Alertes (contexte interne)
