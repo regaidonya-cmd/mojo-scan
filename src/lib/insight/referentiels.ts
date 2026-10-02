@@ -187,22 +187,24 @@ export const MOTS_EXCLUS_IDENTITE = new Set([
   'restaurant', 'beaute', 'beauty', 'nails', 'coiffure', 'entreprise',
 ])
 
-/** Mots qui DÉCRIVENT une activité. Un intitulé Google n'est « descriptif »
- * que s'il ajoute au moins un de ces mots, absent de la raison sociale et
- * de l'enseigne. Liste fermée : on préfère manquer un insight plutôt que
- * d'en fabriquer un (ex. un prénom ajouté n'est pas un fait métier). */
-export const LEXIQUE_ACTIVITE = new Set([
-  'reparateur', 'agree', 'carrosserie', 'mecanique', 'depannage', 'controle',
-  'traiteur', 'kacher', 'casher', 'halal', 'epicerie', 'supermarche', 'boucherie', 'boulangerie', 'patisserie',
-  'pizzeria', 'brasserie', 'hotel', 'indian', 'indien', 'italien', 'creole', 'libanais', 'turc', 'asiatique', 'congolaise', 'africaine',
-  'serrurerie', 'cordonnerie', 'echafaudage', 'echafaudages', 'couverture', 'plomberie', 'chauffage', 'electricite',
-  'menuiserie', 'toiture', 'etancheite', 'peinture', 'renovation', 'maconnerie', 'corps',
-  'podologue', 'pedicure', 'posturologue', 'kinesitherapeute', 'osteopathe', 'opticien',
-  'barbier', 'onglerie', 'esthetique', 'institut',
-  'agence', 'immobiliere', 'achat', 'vente', 'location', 'gestion', 'syndic',
-  'gardes', 'domicile', 'association', 'comite',
-  'architecture', 'notaire', 'avocat', 'comptable', 'ecole',
+/** INSIGHT V1.1 — fiable ≠ commercialement différenciant.
+ * Seuls ces mots rendent un intitulé Google DIFFÉRENCIANT : spécialisation,
+ * prestation spécifique, agrément / certification, offre distinctive.
+ * Une catégorie métier (épicerie, supermarché, agence immobilière,
+ * traiteur…), une origine culinaire ou un simple nom n'en font jamais
+ * partie : ces faits restent affichés, mais en CONTEXTE_SEULEMENT.
+ * Liste fermée, à enrichir ici uniquement. */
+export const LEXIQUE_DIFFERENCIANT = new Set([
+  'reparateur', 'agree', 'carrosserie', 'depannage',
+  'kacher', 'casher', 'halal',
+  'serrurerie', 'cordonnerie', 'echafaudage', 'echafaudages', 'corps',
+  'posturologue', 'osteopathe', 'gardes', 'hotel',
 ])
+
+/** INSIGHT V1.1 — réseaux d'agrément / de service (différenciants), par
+ * opposition aux enseignes de distribution (Franprix, Intermarché, Esso,
+ * Foncia…) qui restent un simple fait de contexte. */
+export const RESEAUX_SERVICE = new Set(['volkswagen', 'bosch car service', 'ad garage'])
 
 /** Réseaux / marques reconnus (liste fermée). Un réseau n'est un fait
  * propre que s'il n'est pas déjà la raison sociale elle-même. */
