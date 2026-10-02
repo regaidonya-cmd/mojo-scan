@@ -216,6 +216,17 @@ async function main() {
     })
     t('9n. Moyen présent via personne ET entreprise -> une seule entrée (nominative)', cms.length === 1 && cms[0].nominatif === true)
 
+    // EMAIL V2 — email entreprise renvoyé AVANT le téléphone par la base :
+    // le téléphone reste le contact de travail, l'email reste affiché.
+    const MOYEN_EMAIL = '12121212-1212-4212-8212-121212121212'
+    const d = donnees()
+    d.personnes_moyens_contact.unshift({ id: 'pmc-a-email', personne_id: null, company_id: CO_A, moyen_contact_id: MOYEN_EMAIL, moyens_contact: { type: 'email', valeur_normalisee: 'contact@entreprise-a.fr' } } as any)
+    const [avecEmail] = await fetchMaJourneeData({ assignedTo: SACHA }, fauxClient(d))
+    t('9p. Email entreprise ajouté (renvoyé en premier) : le téléphone reste le contact sélectionné',
+      avecEmail.engine.selectedContact?.type === 'telephone' && avecEmail.engine.selectedContact?.contactMethodId === MOYEN_A)
+    t('9q. Email entreprise visible (emailAffichable), téléphone inchangé, action CALL',
+      avecEmail.emailAffichable === 'contact@entreprise-a.fr' && avecEmail.telephoneAffichable === '0143000000' && avecEmail.business.displayNba.type === 'CALL')
+
     // Moteur pur : contact générique seul + action CALL persistée.
     const input: ProspectInput = {
       companyId: CO_A, companyName: 'A', fitCible: 'INCONNU', preuveMetier: 'A_VERIFIER', proximiteLocale: true,

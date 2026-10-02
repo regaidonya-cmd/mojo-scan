@@ -78,8 +78,14 @@ export function construireContactMethods(params: {
 
   // PR3 — contacts ENTREPRISE (standard) : non nominatifs, sans personne.
   // Un moyen déjà présent via une personne n'est jamais dupliqué.
+  // EMAIL V2 — ordre DÉTERMINISTE : le téléphone standard précède l'email
+  // entreprise (l'ordre renvoyé par la base n'est pas garanti). Le moteur
+  // retient le premier contact générique autorisé : sans ce tri, l'ajout
+  // d'un email pourrait faire de l'email le contact de travail d'appel.
+  const rang = (c: LigneContact) => (moyen(c)?.type === 'telephone' ? 0 : 1)
+  const contactsEntrepriseTries = [...contactsEntreprise].sort((a, b) => rang(a) - rang(b))
   const dejaPresents = new Set(contactMethods.map((c) => c.contactMethodId))
-  for (const c of contactsEntreprise) {
+  for (const c of contactsEntrepriseTries) {
     const type = moyen(c)?.type
     const value = moyen(c)?.valeur_normalisee
     if ((type !== 'telephone' && type !== 'email') || !value) continue
