@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { DiagnosticState } from '@/types'
 import { StepWrapper } from '../StepWrapper'
 import { DonyaBlock } from '../DonyaBlock'
+import { lireSourceCampagne } from '@/lib/scan/source-campagne'
 
 interface Props {
   state: DiagnosticState
@@ -64,6 +65,7 @@ export function StepCapture({ state, next, update }: Props) {
         consentMarketing,
         consentDate: new Date().toISOString(),
         consentSource: 'mojo-scan-web',
+        sourceCampagne: lireSourceCampagne() ?? undefined,
       }
       const res  = await fetch('/api/scan/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       const data = await res.json()

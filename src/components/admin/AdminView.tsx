@@ -20,7 +20,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }
 }
 
 function exportCSV(diagnostics: any[]) {
-  const headers = ['Date','Prénom','Nom','Email','Téléphone','Entreprise','Ville','Mode','Score Lead','Score Business','Branche','Objectif','Statut','Rapport']
+  const headers = ['Date','Prénom','Nom','Email','Téléphone','Entreprise','Ville','Mode','Source campagne','Score Lead','Score Business','Branche','Objectif','Statut','Rapport']
   const rows = diagnostics.map(d => {
     const c = Array.isArray(d.contacts) ? d.contacts[0] : d.contacts
     const co = Array.isArray(d.companies) ? d.companies[0] : d.companies
@@ -28,7 +28,7 @@ function exportCSV(diagnostics: any[]) {
       new Date(d.completed_at).toLocaleDateString('fr-FR'),
       c?.firstname ?? '', c?.lastname ?? '', c?.email ?? '', c?.phone ?? '',
       co?.name ?? '', co?.city ?? '',
-      d.mode, d.lead_score ?? '', d.business_score ?? '',
+      d.mode, d.source_campagne ?? '', d.lead_score ?? '', d.business_score ?? '',
       d.branch ?? '', d.objective_main ?? '',
       c?.status ?? '',
       `https://mojo-scan.vercel.app/report/${d.report_token}`,
@@ -163,6 +163,7 @@ export function AdminView({ diagnostics, password }: { diagnostics: any[]; passw
                         <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, background: '#EDE9FB', color: VIOLET, fontWeight: 600 }}>
                           {d.mode}
                         </span>
+                        {d.source_campagne && <p style={{ fontSize: 10, color: MUTED, margin: '4px 0 0', whiteSpace: 'nowrap' as const }}>{d.source_campagne}</p>}
                       </td>
                       <td style={{ padding: '12px 16px', textAlign: 'center' as const }}>
                         <span style={{ fontSize: 15, fontWeight: 800, color: NIGHT, fontFamily: "'Bricolage Grotesque', sans-serif" }}>{d.lead_score ?? '—'}</span>

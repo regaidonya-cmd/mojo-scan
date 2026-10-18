@@ -14,6 +14,7 @@ import { StepReport }    from './steps/StepReport'
 import { ProgressBar }   from './ProgressBar'
 import { ModeTag }       from './ModeTag'
 import { TrustBar }      from './TrustBar'
+import { capterSourceCampagne } from '@/lib/scan/source-campagne'
 
 const STEPS: DiagnosticStep[] = [
   'company','profile','objective','questions','project','teaser','capture','report'
@@ -51,6 +52,8 @@ export function ScanShell({ mode, prefill }: Props) {
   const stepNum       = visibleIdx >= 0 ? visibleIdx + 1 : null
   const totalSteps    = VISIBLE_STEPS.length
 
+  // Source de campagne (?src=) captée à l'arrivée, conservée pendant le parcours
+  useEffect(() => { capterSourceCampagne() }, [])
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }) }, [state.step])
 
   const next = useCallback((patch?: Partial<DiagnosticState>) => {

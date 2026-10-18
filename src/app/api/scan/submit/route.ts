@@ -6,6 +6,7 @@ import { computeFunding } from '@/lib/funding/engine'
 import { ENGINE_VERSION } from '@/lib/scoring/version'
 import { syncContactBrevo } from '@/lib/brevo/sync'
 import { sendLeadAlert } from '@/lib/email/hot-lead'
+import { SOURCE_CAMPAGNE_REGEX } from '@/lib/scan/source-campagne'
 import { z } from 'zod'
 
 const SubmitSchema = z.object({
@@ -24,6 +25,7 @@ const SubmitSchema = z.object({
   consentMarketing: z.boolean(),
   consentDate:      z.string().optional(),
   consentSource:    z.string().optional(),
+  sourceCampagne:   z.string().regex(SOURCE_CAMPAGNE_REGEX).optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -124,6 +126,8 @@ export async function POST(req: NextRequest) {
           marketing_consent:    data.consentMarketing,
           marketing_consent_date: data.consentMarketing ? consentDate : null,
           marketing_consent_source: data.consentMarketing ? (data.consentSource ?? 'mojo-scan') : null,
+          // Dernière campagne connue : n'écrase pas une source existante par du vide
+          ...(data.sourceCampagne ? { source_campagne: data.sourceCampagne } : {}),
         }
 
         // upsert par email — un même prospect peut faire plusieurs diagnostics
@@ -159,6 +163,7 @@ export async function POST(req: NextRequest) {
     const { data: diag, error: diagError } = await supabase.from('diagnostics')
       .insert({
         company_id: companyId, contact_id: contactId, mode: data.mode, status: 'completed',
+        source_campagne: data.sourceCampagne ?? null,
         business_score: businessScore.global, score_acquisition: businessScore.acquisition,
         score_visibilite: businessScore.visibilite, score_conversion: businessScore.conversion,
         score_fidelisation: businessScore.fidelisation, score_organisation: businessScore.organisation,
@@ -207,12 +212,14 @@ export async function POST(req: NextRequest) {
     await supabase.from('funnel_events').insert({
       diagnostic_id: diag.id, contact_id: contactId,
       event_type: 'diagnostic_completed',
-      properties: { mode: data.mode, branch, lead_score: leadScore.total },
+      properties: { mode: data.mode, branch, lead_score: leadScore.total, source_campagne: data.sourceCampagne ?? null },
     })
 
     // ── Alerte scan — envoyée sur tous les diagnostics ─────────
+    // Attendue avant de répondre : sur Vercel, un envoi non attendu est coupé
+    // dès que la réponse part. Le résultat est tracé dans funnel_events.
     if (data.contact?.email) {
-      sendLeadAlert({
+      const alerte = await sendLeadAlert({
         firstname:     data.contact.firstname,
         lastname:      data.contact.lastname,
         email:         data.contact.email,
@@ -227,7 +234,15 @@ export async function POST(req: NextRequest) {
         financeur:     recommendations[0] ? (computeFunding(data.company, answersMap)[0]?.funding_body?.funding_body) : undefined,
         diagnostic_id: diag.id,
         report_url:    reportUrl,
-      }).catch(e => console.error('[Alert] Exception:', e))
+        source_campagne: data.sourceCampagne,
+      })
+      await supabase.from('funnel_events').insert({
+        diagnostic_id: diag.id, contact_id: contactId,
+        event_type: alerte.ok ? 'lead_alert_sent' : 'lead_alert_failed',
+        properties: alerte.ok
+          ? { to: alerte.to, message_id: alerte.messageId, source_campagne: data.sourceCampagne ?? null }
+          : { to: alerte.to, error: alerte.error, source_campagne: data.sourceCampagne ?? null },
+      })
     }
 
     // ── Brevo — uniquement si consentement marketing ───────────

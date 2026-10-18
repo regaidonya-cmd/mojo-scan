@@ -39,7 +39,7 @@ export default async function AdminPage({
   const { data: diagnostics } = await supabase
     .from('diagnostics')
     .select(`
-      id, report_token, completed_at, mode, status, lead_score,
+      id, report_token, completed_at, mode, source_campagne, status, lead_score,
       business_score, branch, objective_main,
       catalog_version, scoring_version,
       companies ( name, city, naf_label ),

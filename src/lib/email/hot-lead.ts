@@ -3,6 +3,13 @@
 // Envoi immédiat à Donya à chaque scan complété
 // ══════════════════════════════════════════════════════════════
 
+export interface LeadAlertResult {
+  ok: boolean
+  to: string
+  messageId?: string | null
+  error?: string
+}
+
 export async function sendLeadAlert(data: {
   firstname: string
   lastname?: string
@@ -18,12 +25,13 @@ export async function sendLeadAlert(data: {
   financeur?: string
   diagnostic_id: string
   report_url: string
-}): Promise<void> {
+  source_campagne?: string
+}): Promise<LeadAlertResult> {
   const apiKey     = process.env.BREVO_API_KEY
   const alertEmail = process.env.HOT_LEAD_ALERT_EMAIL ?? 'regai.donya@mojoacademie.com'
   if (!apiKey) {
-    console.warn('[Alert] BREVO_API_KEY manquante — alerte non envoyée')
-    return
+    console.error('[Alert] BREVO_API_KEY manquante — alerte non envoyée')
+    return { ok: false, to: alertEmail, error: 'BREVO_API_KEY manquante' }
   }
 
   // Niveau de priorité selon score
@@ -44,6 +52,7 @@ export async function sendLeadAlert(data: {
     ['OPCO (orient.)', data.opco ?? 'À identifier'],
     ['Financeur',      data.financeur ?? 'À identifier'],
     ['Score lead',     `${data.lead_score}/100`],
+    ['Source campagne', data.source_campagne ?? 'Direct (aucune campagne)'],
   ]
 
   const tableRows = rows.map(([k, v]) => `
@@ -96,20 +105,31 @@ export async function sendLeadAlert(data: {
 </body>
 </html>`
 
+  const campagne = data.source_campagne ? `[${data.source_campagne}] ` : ''
   try {
-    await fetch('https://api.brevo.com/v3/smtp/email', {
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
-      headers: { 'api-key': apiKey, 'Content-Type': 'application/json' },
+      headers: { 'api-key': apiKey, 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({
         sender:      { name: 'MOJO Scan', email: process.env.BREVO_SENDER_EMAIL ?? 'regai.donya@mojoacademie.com' },
         to:          [{ email: alertEmail, name: 'Donya — MOJO ACADÉMIE' }],
-        subject:     `[${level.label}] ${data.firstname} ${data.lastname ?? ''} — ${data.company ?? data.email} — Score ${data.lead_score}/100`,
+        subject:     `${campagne}[${level.label}] ${data.firstname} ${data.lastname ?? ''} — ${data.company ?? data.email} — Score ${data.lead_score}/100`,
         htmlContent: html,
-        tags:        ['lead-alert'],
+        tags:        data.source_campagne ? ['lead-alert', data.source_campagne] : ['lead-alert'],
       }),
+      signal: AbortSignal.timeout(8000),
     })
-    console.log(`[Alert] Alerte envoyée — ${data.email} (score: ${data.lead_score})`)
+    const body = await res.text()
+    if (!res.ok) {
+      console.error(`[Alert] Brevo a refusé l'alerte (${res.status}) : ${body}`)
+      return { ok: false, to: alertEmail, error: `Brevo ${res.status} : ${body.slice(0, 300)}` }
+    }
+    let messageId: string | null = null
+    try { messageId = JSON.parse(body).messageId ?? null } catch {}
+    console.log(`[Alert] Alerte acceptée par Brevo — ${data.email} (score: ${data.lead_score}, messageId: ${messageId})`)
+    return { ok: true, to: alertEmail, messageId }
   } catch (e) {
     console.error('[Alert] Erreur:', e)
+    return { ok: false, to: alertEmail, error: String(e).slice(0, 300) }
   }
 }
